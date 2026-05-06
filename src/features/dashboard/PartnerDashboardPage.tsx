@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useBrandHero } from "@/hooks/use-brand-hero";
 import {
   AlertTriangle,
   ArrowRight,
@@ -45,6 +46,7 @@ function daysUntil(dateStr: string): number {
 
 export default function PartnerDashboardPage() {
   const navigate = useNavigate();
+  const heroClass = useBrandHero();
   const leads = useStore((s) => s.leads);
   const projects = useStore((s) => s.projects);
   const redPacketTasks = useStore((s) => s.redPacketTasks);
@@ -200,7 +202,7 @@ export default function PartnerDashboardPage() {
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-primary/10 bg-primary/90 text-white shadow-sm">
+      <section className={heroClass}>
         <div className="space-y-4 p-4 md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">

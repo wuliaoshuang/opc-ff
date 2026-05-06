@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "@/stores";
+import { useBrandHero } from "@/hooks/use-brand-hero";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,6 +59,7 @@ const statusConfig: Record<
 };
 
 export default function RedPacketPage() {
+  const heroClass = useBrandHero();
   const tasks = useStore((s) => s.redPacketTasks);
   const projects = useStore((s) => s.projects);
   const claimTask = useStore((s) => s.claimRedPacket);
@@ -179,7 +181,7 @@ export default function RedPacketPage() {
         }
       />
 
-      <section className="overflow-hidden rounded-2xl bg-primary/10 bg-primary/90 p-4 text-white md:p-5">
+      <section className={`${heroClass} p-4 md:p-5`}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] text-white/55">任务奖励</p>

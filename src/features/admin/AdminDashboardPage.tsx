@@ -208,7 +208,7 @@ export default function AdminDashboardPage() {
         description="待办、审核、归属和项目风险统一处理"
       />
 
-      <section className="overflow-hidden rounded-2xl border-primary/10 bg-primary/90 p-4 text-white md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-white md:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-[11px] text-white/55">运营工作台</p>

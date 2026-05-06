@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useBrandHero } from "@/hooks/use-brand-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -101,9 +102,11 @@ export default function ProfilePage() {
     navigate("/login");
   };
 
+  const heroClass = useBrandHero();
+
   return (
     <div className="space-y-5 md:space-y-6">
-      <section className="overflow-hidden rounded-3xl border bg-primary p-5 text-white">
+      <section className={`${heroClass.replace('rounded-2xl', 'rounded-3xl')} p-5`}>
         <div className="flex items-start gap-4">
           <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl font-bold text-zinc-950">
             {user.name[0]}
