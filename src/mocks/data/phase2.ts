@@ -273,27 +273,27 @@ export const mockRedPacketTasks: RedPacketTask[] = [
 
 export const mockCommissions: CommissionRecord[] = [
   // 张伟 p-001
-  { id: 'comm-001', projectName: '蒙牛乳业光伏项目', partnerId: 'p-001', amount: 36000, type: 'short_term', level: 'primary', status: 'settled', settledAt: '2026-04-15', commissionRate: '3%', month: '2026-04' },
-  { id: 'comm-003', projectName: '蒙牛乳业光伏项目', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'pending', commissionRate: '1%', month: '2026-05' },
+  { id: 'comm-001', projectName: '蒙牛乳业光伏项目', projectId: 'crm-008', partnerId: 'p-001', amount: 36000, type: 'short_term', level: 'primary', status: 'settled', settledAt: '2026-04-15', commissionRate: '3%', month: '2026-04' },
+  { id: 'comm-003', projectName: '蒙牛乳业光伏项目', projectId: 'crm-008', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'pending', commissionRate: '1%', month: '2026-05' },
   { id: 'comm-007', projectName: '海螺水泥余热项目', partnerId: 'p-001', amount: 25000, type: 'short_term', level: 'primary', status: 'pending', commissionRate: '3%', month: '2026-05' },
-  { id: 'comm-008', projectName: '蒙牛乳业光伏项目', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-03-15', commissionRate: '1%', month: '2026-03' },
-  { id: 'comm-010', projectName: '蒙牛乳业光伏项目', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-02-15', commissionRate: '1%', month: '2026-02' },
-  { id: 'comm-012', projectName: '蒙牛乳业光伏项目', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-01-15', commissionRate: '1%', month: '2026-01' },
+  { id: 'comm-008', projectName: '蒙牛乳业光伏项目', projectId: 'crm-008', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-03-15', commissionRate: '1%', month: '2026-03' },
+  { id: 'comm-010', projectName: '蒙牛乳业光伏项目', projectId: 'crm-008', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-02-15', commissionRate: '1%', month: '2026-02' },
+  { id: 'comm-012', projectName: '蒙牛乳业光伏项目', projectId: 'crm-008', partnerId: 'p-001', amount: 12000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-01-15', commissionRate: '1%', month: '2026-01' },
   // 李明 p-002
   { id: 'comm-020', projectName: '北京首钢朗泽新能源项目', partnerId: 'p-002', amount: 45000, type: 'short_term', level: 'primary', status: 'pending', commissionRate: '3%', month: '2026-05' },
   { id: 'comm-021', projectName: '太阳纸业热电项目', partnerId: 'p-002', amount: 18000, type: 'short_term', level: 'primary', status: 'frozen', commissionRate: '2%', month: '2026-04' },
   // 王强 p-003
-  { id: 'comm-002', projectName: '三一重工储能项目', partnerId: 'p-003', amount: 84000, type: 'short_term', level: 'primary', status: 'settled', settledAt: '2026-03-20', commissionRate: '3%', month: '2026-03' },
+  { id: 'comm-002', projectName: '三一重工储能项目', projectId: 'crm-012', partnerId: 'p-003', amount: 84000, type: 'short_term', level: 'primary', status: 'settled', settledAt: '2026-03-20', commissionRate: '3%', month: '2026-03' },
   { id: 'comm-004', projectName: '比亚迪综合能源项目', partnerId: 'p-003', amount: 150000, type: 'short_term', level: 'primary', status: 'frozen', commissionRate: '5%', month: '2026-05' },
-  { id: 'comm-006', projectName: '三一重工储能项目', partnerId: 'p-003', amount: 28000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-04-20', commissionRate: '1%', month: '2026-04' },
-  { id: 'comm-009', projectName: '三一重工储能项目', partnerId: 'p-003', amount: 28000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-02-20', commissionRate: '1%', month: '2026-02' },
-  { id: 'comm-011', projectName: '三一重工储能项目', partnerId: 'p-003', amount: 28000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-01-20', commissionRate: '1%', month: '2026-01' },
+  { id: 'comm-006', projectName: '三一重工储能项目', projectId: 'crm-012', partnerId: 'p-003', amount: 28000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-04-20', commissionRate: '1%', month: '2026-04' },
+  { id: 'comm-009', projectName: '三一重工储能项目', projectId: 'crm-012', partnerId: 'p-003', amount: 28000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-02-20', commissionRate: '1%', month: '2026-02' },
+  { id: 'comm-011', projectName: '三一重工储能项目', projectId: 'crm-012', partnerId: 'p-003', amount: 28000, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-01-20', commissionRate: '1%', month: '2026-01' },
   // 赵刚 p-004
   { id: 'comm-030', projectName: '五粮液节能改造项目', partnerId: 'p-004', amount: 15000, type: 'short_term', level: 'primary', status: 'pending', commissionRate: '3%', month: '2026-05' },
   // 陈丽 p-005
   { id: 'comm-005', projectName: '首钢余热回收项目', partnerId: 'p-005', amount: 48000, type: 'short_term', level: 'primary', status: 'pending', commissionRate: '4%', month: '2026-05' },
-  { id: 'comm-031', projectName: '娃哈哈光伏项目', partnerId: 'p-005', amount: 20400, type: 'short_term', level: 'primary', status: 'settled', settledAt: '2026-04-28', commissionRate: '3%', month: '2026-04' },
-  { id: 'comm-032', projectName: '娃哈哈光伏项目', partnerId: 'p-005', amount: 6800, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-05-05', commissionRate: '1%', month: '2026-05' },
+  { id: 'comm-031', projectName: '娃哈哈光伏项目', projectId: 'crm-023', partnerId: 'p-005', amount: 20400, type: 'short_term', level: 'primary', status: 'settled', settledAt: '2026-04-28', commissionRate: '3%', month: '2026-04' },
+  { id: 'comm-032', projectName: '娃哈哈光伏项目', projectId: 'crm-023', partnerId: 'p-005', amount: 6800, type: 'long_term', level: 'primary', status: 'settled', settledAt: '2026-05-05', commissionRate: '1%', month: '2026-05' },
   // 孙涛 p-007
   { id: 'comm-040', projectName: '南京钢铁余热发电项目', partnerId: 'p-007', amount: 56000, type: 'short_term', level: 'primary', status: 'pending', commissionRate: '4%', month: '2026-05' },
   { id: 'comm-041', projectName: '宁德时代储能项目', partnerId: 'p-007', amount: 22000, type: 'short_term', level: 'primary', status: 'frozen', commissionRate: '2%', month: '2026-04' },
@@ -301,11 +301,11 @@ export const mockCommissions: CommissionRecord[] = [
   { id: 'comm-050', projectName: '华润水泥节能项目', partnerId: 'p-008', amount: 18000, type: 'short_term', level: 'primary', status: 'pending', commissionRate: '3%', month: '2026-05' },
   { id: 'comm-051', projectName: '广汽集团光伏项目', partnerId: 'p-008', amount: 32000, type: 'short_term', level: 'primary', status: 'frozen', commissionRate: '3%', month: '2026-04' },
   // 二级分佣
-  { id: 'comm-101', projectName: '蒙牛乳业光伏项目', partnerId: 'sp-001', amount: 10800, type: 'short_term', level: 'secondary', parentPartnerId: 'p-001', parentPartnerName: '张伟', status: 'settled', settledAt: '2026-04-15', commissionRate: '1%', month: '2026-04' },
-  { id: 'comm-102', projectName: '三一重工储能项目', partnerId: 'sp-003', amount: 25200, type: 'short_term', level: 'secondary', parentPartnerId: 'p-003', parentPartnerName: '王强', status: 'settled', settledAt: '2026-03-20', commissionRate: '1%', month: '2026-03' },
+  { id: 'comm-101', projectName: '蒙牛乳业光伏项目', projectId: 'crm-008', partnerId: 'sp-001', amount: 10800, type: 'short_term', level: 'secondary', parentPartnerId: 'p-001', parentPartnerName: '张伟', status: 'settled', settledAt: '2026-04-15', commissionRate: '1%', month: '2026-04' },
+  { id: 'comm-102', projectName: '三一重工储能项目', projectId: 'crm-012', partnerId: 'sp-003', amount: 25200, type: 'short_term', level: 'secondary', parentPartnerId: 'p-003', parentPartnerName: '王强', status: 'settled', settledAt: '2026-03-20', commissionRate: '1%', month: '2026-03' },
   { id: 'comm-103', projectName: '比亚迪综合能源项目', partnerId: 'sp-003', amount: 45000, type: 'short_term', level: 'secondary', parentPartnerId: 'p-003', parentPartnerName: '王强', status: 'frozen', commissionRate: '1.5%', month: '2026-05' },
   { id: 'comm-104', projectName: '海螺水泥余热项目', partnerId: 'sp-001', amount: 7500, type: 'short_term', level: 'secondary', parentPartnerId: 'p-001', parentPartnerName: '张伟', status: 'pending', commissionRate: '0.5%', month: '2026-05' },
-  { id: 'comm-105', projectName: '娃哈哈光伏项目', partnerId: 'sp-005', amount: 6120, type: 'short_term', level: 'secondary', parentPartnerId: 'p-005', parentPartnerName: '陈丽', status: 'settled', settledAt: '2026-04-28', commissionRate: '0.9%', month: '2026-04' },
+  { id: 'comm-105', projectName: '娃哈哈光伏项目', projectId: 'crm-023', partnerId: 'sp-005', amount: 6120, type: 'short_term', level: 'secondary', parentPartnerId: 'p-005', parentPartnerName: '陈丽', status: 'settled', settledAt: '2026-04-28', commissionRate: '0.9%', month: '2026-04' },
 ]
 
 export const mockIncentiveTasks: IncentiveTask[] = [

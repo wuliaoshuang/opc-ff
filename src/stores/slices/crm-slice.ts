@@ -10,7 +10,7 @@ export interface CrmSlice {
   fillContactAndAdvance: (id: string, contact: ContactPerson) => void
   requestOnlineMeeting: (id: string) => void
   confirmOnlineMeeting: (id: string) => void
-  signProject: (id: string, note: string) => void
+  signProject: (id: string, note: string, contractAmount?: number) => void
   addFollowupLog: (id: string, log: FollowupLog) => void
   updateContactPerson: (id: string, contact: ContactPerson) => void
   releaseProjectByCompany: (companyName: string, reason?: string) => void
@@ -94,7 +94,7 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
         }
       }),
     })),
-  signProject: (id, note) =>
+  signProject: (id, note, contractAmount) =>
     set((state) => ({
       projects: state.projects.map((p) => {
         if (p.id !== id) return p
@@ -102,11 +102,16 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
         return {
           ...p,
           stage: 'signed' as ProjectStage,
+          contractAmount,
           isExclusive: false,
           isOverdue: false,
           followupLogs: [
             ...p.followupLogs,
-            { date: now, action: '确认签单', result: note || '项目已签单，进入结算流程' },
+            {
+              date: now,
+              action: '确认签单',
+              result: note || (contractAmount ? `项目已签单，合同金额¥${contractAmount.toLocaleString()}，进入结算流程` : '项目已签单，进入结算流程'),
+            },
           ],
         }
       }),

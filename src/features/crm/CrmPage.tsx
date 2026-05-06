@@ -75,6 +75,7 @@ export default function CrmPage() {
   const applyOnlineMeeting = useStore((s) => s.applyOnlineMeeting);
   const checkConflict = useStore((s) => s.checkConflict);
   const addBinding = useStore((s) => s.addBinding);
+  const commissions = useStore((s) => s.commissions);
   const user = useStore((s) => s.user);
 
   const [selectedProject, setSelectedProject] = useState<CrmProject | null>(null);
@@ -433,9 +434,37 @@ export default function CrmPage() {
               {selectedProject.stage === "signed" && (
                 <>
                   <Separator />
-                  <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                  <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-3">
                     <p className="text-[13px] font-semibold text-green-700 dark:text-green-300 flex items-center gap-1.5"><CheckCircle2 className="size-3.5" /> 项目已签单</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">该项目已成功签单，请前往分佣结算页查看收益明细。</p>
+                    {selectedProject.contractAmount && (
+                      <p className="text-[12px] text-muted-foreground">合同金额 <span className="font-semibold text-foreground">¥{selectedProject.contractAmount.toLocaleString()}</span></p>
+                    )}
+                    <div className="space-y-2">
+                      <p className="text-[12px] font-medium">佣金明细</p>
+                      {(() => {
+                        const linked = commissions.filter((c) => c.projectId === selectedProject.id)
+                        if (linked.length === 0) return <p className="text-[11px] text-muted-foreground">暂无佣金记录，请联系平台确认</p>
+                        return (
+                          <div className="space-y-1.5">
+                            {linked.map((c) => (
+                              <div key={c.id} className="flex items-center justify-between text-[12px] rounded-lg bg-background p-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-[10px]">{c.level === 'primary' ? '一级' : '二级'}</Badge>
+                                  <span>{c.type === 'short_term' ? '短期' : '长期'} · {c.commissionRate}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-semibold">¥{c.amount.toLocaleString()}</span>
+                                  <Badge variant={c.status === 'pending' ? 'outline' : 'default'} className="text-[10px]">
+                                    {c.status === 'pending' ? '待结算' : c.status === 'settled' ? '已结算' : '冻结'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">更多结算详情请前往「分佣结算」页查看</p>
                   </div>
                 </>
               )}

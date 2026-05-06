@@ -34,7 +34,8 @@ export default function BusinessTrackingPage() {
   const partners = useStore((s) => s.partners)
   const bindings = useStore((s) => s.bindings)
   const adminLeads = useStore((s) => s.adminLeads)
-  const updateProjectStage = useStore((s) => s.updateProjectStage)
+  const signProject = useStore((s) => s.signProject)
+  const signProjectAndCreateCommissions = useStore((s) => s.signProjectAndCreateCommissions)
   const confirmOnlineMeeting = useStore((s) => s.confirmOnlineMeeting)
   const advanceBindingStage = useStore((s) => s.advanceBindingStage)
   const releaseProjectByCompany = useStore((s) => s.releaseProjectByCompany)
@@ -45,6 +46,9 @@ export default function BusinessTrackingPage() {
   const [stageFilter, setStageFilter] = useState<ProjectStage | 'all'>('all')
   const [selectedProject, setSelectedProject] = useState<CrmProject | null>(null)
   const [signNote, setSignNote] = useState('')
+  const [contractAmount, setContractAmount] = useState('')
+  const [shortTermRate, setShortTermRate] = useState('3')
+  const [longTermRate, setLongTermRate] = useState('1')
 
   const filtered = sortByNewest(projects, getProjectLatestTime)
     .filter((p) => stageFilter === 'all' || p.stage === stageFilter)
@@ -70,12 +74,45 @@ export default function BusinessTrackingPage() {
     toast.warning(`已释放「${project.companyName}」的归属`)
   }
 
+  const resetSignForm = () => {
+    setSignNote('')
+    setContractAmount('')
+    setShortTermRate('3')
+    setLongTermRate('1')
+  }
+
   const handleSign = (project: CrmProject) => {
-    updateProjectStage(project.id, 'signed')
+    const amount = Number(contractAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('请输入有效的合同金额')
+      return
+    }
+    const stRate = Number(shortTermRate) / 100
+    const ltRate = Number(longTermRate) / 100
+    if (!Number.isFinite(stRate) || stRate <= 0 || !Number.isFinite(ltRate) || ltRate < 0) {
+      toast.error('请输入有效的佣金比例')
+      return
+    }
+    const partnerId = project.ownerPartnerId ?? ''
+    const partnerName = project.ownerPartnerName ?? getPartnerName(project)
+    const projectName = `${project.companyName}${project.industry ? project.industry + '项目' : '项目'}`
+
+    signProject(project.id, signNote || `合同金额¥${amount.toLocaleString()}`, amount)
+    signProjectAndCreateCommissions({
+      projectId: project.id,
+      projectName,
+      partnerId,
+      partnerName,
+      contractAmount: amount,
+      shortTermRate: stRate,
+      longTermRate: ltRate,
+    })
+
     const activeBinding = bindings.find((b) => b.customerName === project.companyName && b.status === 'active')
     if (activeBinding) releaseBinding(activeBinding.id)
-    setSelectedProject({ ...project, stage: 'signed', isExclusive: false, isOverdue: false })
-    toast.success(`「${project.companyName}」已标记为签单`)
+    setSelectedProject({ ...project, stage: 'signed', isExclusive: false, isOverdue: false, contractAmount: amount })
+    toast.success(`「${project.companyName}」已签单，合同金额¥${amount.toLocaleString()}，佣金已自动进入结算`)
+    resetSignForm()
   }
 
   const handleConfirmMeeting = (project: CrmProject) => {
@@ -336,24 +373,64 @@ export default function BusinessTrackingPage() {
                 </div>
               )}
               {selectedProject.stage === 'exclusive' && (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
-                  <p className="text-[13px] font-semibold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300"><ShieldCheck className="size-3.5" /> 排他保护中</p>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+                  <p className="text-[13px] font-semibold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300"><ShieldCheck className="size-3.5" /> 排他保护中 — 确认签单</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground">合同金额（元）*</p>
+                      <Input
+                        placeholder="例如 12000000"
+                        value={contractAmount}
+                        onChange={(e) => setContractAmount(e.target.value)}
+                        className="h-8 text-[13px]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground">短期佣金比例（%）*</p>
+                      <Input
+                        placeholder="3"
+                        value={shortTermRate}
+                        onChange={(e) => setShortTermRate(e.target.value)}
+                        className="h-8 text-[13px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-muted-foreground">长期佣金比例（%）</p>
+                    <Input
+                      placeholder="1"
+                      value={longTermRate}
+                      onChange={(e) => setLongTermRate(e.target.value)}
+                      className="h-8 text-[13px]"
+                    />
+                  </div>
+                  {Number(contractAmount) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      短期佣金 ¥{Math.round(Number(contractAmount) * Number(shortTermRate) / 100).toLocaleString()} · 长期佣金 ¥{Math.round(Number(contractAmount) * Number(longTermRate) / 100).toLocaleString()}
+                    </p>
+                  )}
                   <Textarea
-                    placeholder="签单备注（如合同金额、项目类型等）"
+                    placeholder="签单备注（选填，如项目类型等）"
                     value={signNote}
                     onChange={(e) => setSignNote(e.target.value)}
                     className="text-[13px] min-h-[60px]"
                   />
-                  <Button className="w-full gap-1.5" onClick={() => { handleSign(selectedProject); setSignNote('') }}>
-                    <CheckCircle2 className="size-3.5" /> 确认签单
+                  <Button className="w-full gap-1.5" onClick={() => handleSign(selectedProject)}>
+                    <CheckCircle2 className="size-3.5" /> 确认签单并生成佣金
                   </Button>
                 </div>
               )}
               <Separator />
+              {selectedProject.stage === 'signed' && selectedProject.contractAmount && (
+                <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-1">
+                  <p className="text-[13px] font-semibold text-green-700 dark:text-green-300">已签单 · 合同金额 ¥{selectedProject.contractAmount.toLocaleString()}</p>
+                  <p className="text-[11px] text-muted-foreground">佣金已自动生成，请前往分佣结算操作台查看。</p>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {selectedProject.stage !== 'signed' && selectedProject.stage !== 'released' && (
+                {selectedProject.stage !== 'signed' && selectedProject.stage !== 'released' && selectedProject.stage !== 'exclusive' && (
                   <Button className="gap-1.5" onClick={() => handleSign(selectedProject)}>
-                    <CheckCircle2 className="size-3.5" /> 标记签单
+                    <CheckCircle2 className="size-3.5" /> 快速标记签单
                   </Button>
                 )}
                 {selectedProject.stage !== 'released' && (

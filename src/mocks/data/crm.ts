@@ -43,6 +43,7 @@ export const mockCrmProjects: CrmProject[] = [
     stage: 'signed', appliedAt: '2025-08-10', contactDeadline: '2025-09-10', meetingDeadline: '2025-10-10',
     exclusiveStart: '2025-10-10', exclusiveEnd: '2026-04-10',
     isExclusive: false, isOverdue: false, source: 'manual',
+    contractAmount: 12000000,
     contactPerson: { name: '赵厂长', role: '工厂厂长', phone: '133****6789', trustLevel: 8, decisionLevel: 9 },
     followupLogs: [
       { date: '2025-08-10', action: '登记项目', result: '通过' },
@@ -125,6 +126,7 @@ export const mockCrmProjects: CrmProject[] = [
     stage: 'signed', appliedAt: '2025-07-01', contactDeadline: '2025-08-01', meetingDeadline: '2025-09-01',
     exclusiveStart: '2025-09-01', exclusiveEnd: '2026-03-01',
     isExclusive: false, isOverdue: false, source: 'lead',
+    contractAmount: 28000000,
     contactPerson: { name: '黄董助', role: '董事长助理', phone: '186****5432', trustLevel: 10, decisionLevel: 10 },
     followupLogs: [
       { date: '2025-07-01', action: '申请跟进', result: '通过' },
@@ -211,6 +213,7 @@ export const mockCrmProjects: CrmProject[] = [
     stage: 'signed', appliedAt: '2025-09-01', contactDeadline: '2025-10-01', meetingDeadline: '2025-11-01',
     exclusiveStart: '2025-11-05', exclusiveEnd: '2026-05-05',
     isExclusive: false, isOverdue: false, source: 'manual',
+    contractAmount: 6800000,
     contactPerson: { name: '蒋副总', role: '副总', phone: '137****9999', trustLevel: 9, decisionLevel: 9 },
     followupLogs: [
       { date: '2025-09-01', action: '登记项目', result: '杭州下沙工厂' },

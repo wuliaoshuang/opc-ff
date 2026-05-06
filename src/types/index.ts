@@ -124,6 +124,7 @@ export interface CrmProject {
   isExclusive: boolean
   isOverdue: boolean
   source: 'manual' | 'lead'
+  contractAmount?: number
   followupLogs: FollowupLog[]
 }
 

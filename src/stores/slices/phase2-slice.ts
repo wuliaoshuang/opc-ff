@@ -61,6 +61,15 @@ export interface Phase2Slice {
   closeIncentiveTask: (id: string) => void
   addCommission: (commission: CommissionRecord) => void
   updateCommission: (id: string, patch: Partial<CommissionRecord>) => void
+  signProjectAndCreateCommissions: (params: {
+    projectId: string
+    projectName: string
+    partnerId: string
+    partnerName: string
+    contractAmount: number
+    shortTermRate: number
+    longTermRate: number
+  }) => void
 }
 
 const stageOrder: BindingStage[] = ['temporary', 'locked', 'exclusive']
@@ -350,4 +359,73 @@ export const createPhase2Slice: StateCreator<Phase2Slice> = (set, get) => ({
         s.id === id ? { ...s, status } : s,
       ),
     })),
+  signProjectAndCreateCommissions: ({ projectId, projectName, partnerId, partnerName, contractAmount, shortTermRate, longTermRate }) =>
+    set((state) => {
+      const now = new Date().toISOString().split('T')[0]
+      const month = now.slice(0, 7)
+      const shortTermAmount = Math.round(contractAmount * shortTermRate)
+      const longTermAmount = Math.round(contractAmount * longTermRate)
+
+      const newCommissions: CommissionRecord[] = [
+        // 一级短期佣金
+        {
+          id: `comm-sign-${projectId}-short`,
+          projectName,
+          projectId,
+          partnerId,
+          amount: shortTermAmount,
+          type: 'short_term',
+          level: 'primary',
+          status: 'pending',
+          commissionRate: `${(shortTermRate * 100).toFixed(0)}%`,
+          month,
+          sourceType: 'project',
+          reviewNote: '签单自动生成',
+          operator: '管理员',
+        },
+        // 一级长期佣金
+        {
+          id: `comm-sign-${projectId}-long`,
+          projectName,
+          projectId,
+          partnerId,
+          amount: longTermAmount,
+          type: 'long_term',
+          level: 'primary',
+          status: 'pending',
+          commissionRate: `${(longTermRate * 100).toFixed(0)}%`,
+          month,
+          sourceType: 'project',
+          reviewNote: '签单自动生成',
+          operator: '管理员',
+        },
+      ]
+
+      // 二级分佣：遍历该合伙人名下的活跃二级合伙人
+      const activeSubPartners = state.subPartners.filter(
+        (s) => s.parentId === partnerId && s.status === 'active',
+      )
+      for (const sub of activeSubPartners) {
+        const secondaryRate = shortTermRate * 0.3 // 二级佣金为一级短期的 30%
+        newCommissions.push({
+          id: `comm-sign-${projectId}-sub-${sub.id}`,
+          projectName,
+          projectId,
+          partnerId: sub.id,
+          amount: Math.round(contractAmount * secondaryRate),
+          type: 'short_term',
+          level: 'secondary',
+          parentPartnerId: partnerId,
+          parentPartnerName: partnerName,
+          status: 'pending',
+          commissionRate: `${(secondaryRate * 100).toFixed(1)}%`,
+          month,
+          sourceType: 'project',
+          reviewNote: '签单自动生成',
+          operator: '管理员',
+        })
+      }
+
+      return { commissions: [...newCommissions, ...state.commissions] }
+    }),
 })
