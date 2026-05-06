@@ -11,7 +11,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Briefcase, Clock, ShieldCheck, AlertTriangle, CheckCircle2, ArrowRight, Plus, X, UserPlus, Video, PenLine, Star } from "lucide-react";
@@ -69,8 +68,6 @@ export default function CrmPage() {
   const addProject = useStore((s) => s.addProject);
   const fillContactAndAdvance = useStore((s) => s.fillContactAndAdvance);
   const requestOnlineMeeting = useStore((s) => s.requestOnlineMeeting);
-  const confirmOnlineMeeting = useStore((s) => s.confirmOnlineMeeting);
-  const signProject = useStore((s) => s.signProject);
   const addFollowupLog = useStore((s) => s.addFollowupLog);
   const updateContactPerson = useStore((s) => s.updateContactPerson);
   const bindings = useStore((s) => s.bindings);
@@ -95,7 +92,6 @@ export default function CrmPage() {
   const [editRole, setEditRole] = useState("");
   const [logAction, setLogAction] = useState("");
   const [logResult, setLogResult] = useState("");
-  const [signNote, setSignNote] = useState("");
 
   const sortedProjects = sortByNewest(projects, getProjectLatestTime);
   const filtered = activeTab === "all" ? sortedProjects : sortedProjects.filter((p) => p.stage === activeTab);
@@ -108,7 +104,7 @@ export default function CrmPage() {
   function openProject(project: CrmProject) {
     setSelectedProject(project);
     setEditingContact(false);
-    setLogAction(""); setLogResult(""); setSignNote("");
+    setLogAction(""); setLogResult("");
     if (project.contactPerson) {
       setEditTrust(project.contactPerson.trustLevel);
       setEditDecision(project.contactPerson.decisionLevel);
@@ -121,7 +117,7 @@ export default function CrmPage() {
     setContactName(""); setContactRole(""); setContactPhone("");
     setContactTrust(5); setContactDecision(5);
     setEditingContact(false);
-    setLogAction(""); setLogResult(""); setSignNote("");
+    setLogAction(""); setLogResult("");
   }
 
   function handleAddLog() {
@@ -414,18 +410,9 @@ export default function CrmPage() {
               {selectedProject.stage === "online_meeting" && (
                 <>
                   <Separator />
-                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 space-y-3">
-                    <p className="text-[13px] font-semibold flex items-center gap-1.5 text-sky-700 dark:text-sky-300"><Video className="size-3.5" /> 线上接洽进行中</p>
-                    <p className="text-[11px] text-muted-foreground">平台已安排接洽，接洽完成后点击确认，项目将进入180天排他保护期。</p>
-                    <Button className="w-full" onClick={() => {
-                      confirmOnlineMeeting(selectedProject.id);
-                      const now = new Date().toISOString().split("T")[0];
-                      const exclusiveEnd = new Date(Date.now() + 180 * 86400000).toISOString().split("T")[0];
-                      toast.success("线上接洽已确认，项目进入排他保护期");
-                      setSelectedProject({ ...selectedProject, stage: "exclusive", exclusiveStart: now, exclusiveEnd, isExclusive: true });
-                    }}>
-                      <CheckCircle2 className="size-3.5 mr-1.5" /> 确认接洽完成，进入排他期
-                    </Button>
+                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 space-y-2">
+                    <p className="text-[13px] font-semibold flex items-center gap-1.5 text-sky-700 dark:text-sky-300"><Video className="size-3.5" /> 线上接洽安排中</p>
+                    <p className="text-[12px] text-muted-foreground">平台正在安排接洽，完成后由平台确认并推进至排他期，请保持联系畅通。</p>
                   </div>
                 </>
               )}
@@ -433,17 +420,9 @@ export default function CrmPage() {
               {selectedProject.stage === "exclusive" && (
                 <>
                   <Separator />
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
                     <p className="text-[13px] font-semibold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300"><ShieldCheck className="size-3.5" /> 排他保护中</p>
-                    <p className="text-[11px] text-muted-foreground">项目在排他期内受到保护，确认签单后结束排他期并进入结算流程。</p>
-                    <Textarea placeholder="签单备注（选填，如合同金额、项目类型等）" value={signNote} onChange={(e) => setSignNote(e.target.value)} className="text-[13px] min-h-[60px]" />
-                    <Button className="w-full" onClick={() => {
-                      signProject(selectedProject.id, signNote);
-                      toast.success("恭喜！项目已标记为签单成功");
-                      setSelectedProject({ ...selectedProject, stage: "signed", isExclusive: false, isOverdue: false });
-                    }}>
-                      <CheckCircle2 className="size-3.5 mr-1.5" /> 确认签单
-                    </Button>
+                    <p className="text-[12px] text-muted-foreground">项目在排他期内受到保护，签单后由平台在后台商务跟进表中确认，确认后进入结算流程。</p>
                   </div>
                 </>
               )}

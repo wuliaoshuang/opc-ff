@@ -139,7 +139,7 @@ export const createPhase2Slice: StateCreator<Phase2Slice> = (set, get) => ({
       bindings: state.bindings.map((b) => {
         if (b.id !== id) return b
         const now = new Date().toISOString().split('T')[0]
-        const entry: BindingHistoryEntry = { date: now, from: b.stage, to: 'released' as BindingStage, action: '未达成阶段目标，自动释放', operator: '系统' }
+        const entry: BindingHistoryEntry = { date: now, from: b.stage, to: 'released' as BindingStage, action: '未达成阶段目标，自动释放', operator: 'b.partnerName' }
         return { ...b, stage: 'released' as BindingStage, status: 'inactive' as const, history: [...b.history, entry] }
       }),
     })),
@@ -200,12 +200,11 @@ export const createPhase2Slice: StateCreator<Phase2Slice> = (set, get) => ({
         if (b.id !== id || b.stage !== 'locked') return b
         const now = new Date().toISOString().split('T')[0]
         const entry: BindingHistoryEntry = {
-          date: now, from: 'locked' as BindingStage, to: 'exclusive' as BindingStage,
-          action: '线上接洽完成，专家评审通过',
-          operator: '系统',
+          date: now, from: 'locked' as BindingStage, to: 'locked' as BindingStage,
+          action: '申请线上接洽，等待平台确认',
+          operator: b.partnerName,
         }
-        const d = new Date(); d.setDate(d.getDate() + 180)
-        return { ...b, stage: 'exclusive' as BindingStage, expiredAt: d.toISOString().split('T')[0], history: [...b.history, entry] }
+        return { ...b, history: [...b.history, entry] }
       }),
     })),
 

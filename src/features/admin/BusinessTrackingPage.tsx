@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { CheckCircle2, Download, RotateCcw } from 'lucide-react'
+import { CheckCircle2, Download, RotateCcw, Video, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatListTime, latestOf, sortByNewest } from '@/lib/time'
 import type { CrmProject, ProjectStage } from '@/types'
@@ -34,6 +35,8 @@ export default function BusinessTrackingPage() {
   const bindings = useStore((s) => s.bindings)
   const adminLeads = useStore((s) => s.adminLeads)
   const updateProjectStage = useStore((s) => s.updateProjectStage)
+  const confirmOnlineMeeting = useStore((s) => s.confirmOnlineMeeting)
+  const advanceBindingStage = useStore((s) => s.advanceBindingStage)
   const releaseProjectByCompany = useStore((s) => s.releaseProjectByCompany)
   const releaseLeadByCompany = useStore((s) => s.releaseLeadByCompany)
   const releaseAdminLeadByCompany = useStore((s) => s.releaseAdminLeadByCompany)
@@ -41,6 +44,7 @@ export default function BusinessTrackingPage() {
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<ProjectStage | 'all'>('all')
   const [selectedProject, setSelectedProject] = useState<CrmProject | null>(null)
+  const [signNote, setSignNote] = useState('')
 
   const filtered = sortByNewest(projects, getProjectLatestTime)
     .filter((p) => stageFilter === 'all' || p.stage === stageFilter)
@@ -62,14 +66,27 @@ export default function BusinessTrackingPage() {
     releaseProjectByCompany(project.companyName, '后台商务跟进表释放归属')
     releaseLeadByCompany(project.companyName)
     releaseAdminLeadByCompany(project.companyName)
-    setSelectedProject(null)
+    setSelectedProject({ ...project, stage: 'released', isExclusive: false })
     toast.warning(`已释放「${project.companyName}」的归属`)
   }
 
   const handleSign = (project: CrmProject) => {
     updateProjectStage(project.id, 'signed')
+    const activeBinding = bindings.find((b) => b.customerName === project.companyName && b.status === 'active')
+    if (activeBinding) releaseBinding(activeBinding.id)
     setSelectedProject({ ...project, stage: 'signed', isExclusive: false, isOverdue: false })
     toast.success(`「${project.companyName}」已标记为签单`)
+  }
+
+  const handleConfirmMeeting = (project: CrmProject) => {
+    confirmOnlineMeeting(project.id)
+    const now = new Date().toISOString().split('T')[0]
+    const exclusiveEnd = new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0]
+    const activeBinding = bindings.find((b) => b.customerName === project.companyName && b.status === 'active' && b.stage === 'locked')
+    if (activeBinding) advanceBindingStage(activeBinding.id, '平台确认线上接洽完成')
+    const updated = { ...project, stage: 'exclusive' as ProjectStage, exclusiveStart: now, exclusiveEnd, isExclusive: true }
+    setSelectedProject(updated)
+    toast.success(`接洽已确认，「${project.companyName}」进入180天排他期`)
   }
 
   const statItems = [
@@ -147,7 +164,13 @@ export default function BusinessTrackingPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((project, idx) => (
-                  <TableRow key={project.id} className="hover:bg-muted/30">
+                  <TableRow
+                    key={project.id}
+                    className={cn(
+                      'hover:bg-muted/30',
+                      project.stage === 'released' && 'opacity-40',
+                    )}
+                  >
                     <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell className="font-medium">{project.companyName}</TableCell>
                     <TableCell>{project.industry}</TableCell>
@@ -224,7 +247,11 @@ export default function BusinessTrackingPage() {
           </div>
           <div className="md:hidden space-y-3 mt-4">
             {filtered.map((project) => (
-              <Card key={project.id} className="cursor-pointer" onClick={() => setSelectedProject(project)}>
+              <Card
+                key={project.id}
+                className={cn('cursor-pointer', project.stage === 'released' && 'opacity-40')}
+                onClick={() => setSelectedProject(project)}
+              >
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
@@ -298,6 +325,30 @@ export default function BusinessTrackingPage() {
                   ))}
                 </div>
               </div>
+              <Separator />
+              {selectedProject.stage === 'online_meeting' && (
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 space-y-2">
+                  <p className="text-[13px] font-semibold flex items-center gap-1.5 text-sky-700 dark:text-sky-300"><Video className="size-3.5" /> 待确认线上接洽</p>
+                  <p className="text-[11px] text-muted-foreground">合伙人已申请线上接洽，平台安排完成后点击确认，项目将进入180天排他保护期。</p>
+                  <Button className="w-full gap-1.5" onClick={() => handleConfirmMeeting(selectedProject)}>
+                    <CheckCircle2 className="size-3.5" /> 确认接洽完成，进入排他期
+                  </Button>
+                </div>
+              )}
+              {selectedProject.stage === 'exclusive' && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+                  <p className="text-[13px] font-semibold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300"><ShieldCheck className="size-3.5" /> 排他保护中</p>
+                  <Textarea
+                    placeholder="签单备注（如合同金额、项目类型等）"
+                    value={signNote}
+                    onChange={(e) => setSignNote(e.target.value)}
+                    className="text-[13px] min-h-[60px]"
+                  />
+                  <Button className="w-full gap-1.5" onClick={() => { handleSign(selectedProject); setSignNote('') }}>
+                    <CheckCircle2 className="size-3.5" /> 确认签单
+                  </Button>
+                </div>
+              )}
               <Separator />
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {selectedProject.stage !== 'signed' && selectedProject.stage !== 'released' && (
