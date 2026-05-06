@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useStore } from "@/stores";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SubsectionTabs } from "@/components/shared/SubsectionTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -222,31 +223,18 @@ export default function CrmPage() {
         </div>
       )}
 
-      <div className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1 sm:grid-cols-3 lg:flex lg:w-fit lg:max-w-full lg:flex-wrap">
-        {[
+      <SubsectionTabs
+        active={activeTab}
+        onChange={setActiveTab}
+        tabs={[
           { value: "all", label: "全部", count: projects.length },
           ...(Object.keys(stageConfig) as ProjectStage[]).map((stage) => ({
             value: stage,
             label: stageConfig[stage].label,
             count: projects.filter((p) => p.stage === stage).length,
           })),
-        ].map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => setActiveTab(item.value)}
-            className={cn(
-              "min-w-0 rounded-xl px-2 py-2 text-center text-[12px] font-medium leading-tight transition-colors",
-              activeTab === item.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-background/70",
-            )}
-          >
-            <span className="block truncate">{item.label}</span>
-            <span className="block text-[10px] opacity-70">{item.count}</span>
-          </button>
-        ))}
-      </div>
+        ]}
+      />
 
       {filtered.length === 0 ? (
         <EmptyState

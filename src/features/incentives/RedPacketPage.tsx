@@ -3,6 +3,7 @@ import { useStore } from "@/stores";
 import { useBrandHero } from "@/hooks/use-brand-hero";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
+import { SubsectionTabs } from "@/components/shared/SubsectionTabs";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -36,7 +37,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadEvidenceDialog } from "./components/UploadEvidenceDialog";
-import { cn } from "@/lib/utils";
 import { formatListTime, latestOf, sortByNewest } from "@/lib/time";
 import type { IncentiveTask, RedPacketTask } from "@/types";
 
@@ -235,33 +235,33 @@ export default function RedPacketPage() {
         <StatCard title="执行中" value={executing} icon={Clock} />
       </div>
 
-      <div className="grid w-full grid-cols-3 gap-1 rounded-2xl bg-muted/70 p-1 lg:flex lg:w-fit lg:max-w-full lg:flex-wrap">
-        {[
-          { value: "all", label: "全部" },
-          { value: "available", label: "可领取" },
-          { value: "executing", label: "执行中" },
-          { value: "evidence_submitted", label: "待审核" },
-          { value: "rejected", label: "已驳回" },
-          { value: "paid", label: "已发放" },
-        ].map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => setFilter(item.value)}
-            className={cn(
-              "min-w-0 rounded-xl px-2 py-2 text-center text-[12px] font-medium leading-tight transition-colors",
-              filter === item.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-background/70",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <SubsectionTabs
+        active={filter}
+        onChange={setFilter}
+        tabs={[
+          { value: "all", label: "全部", count: tasks.length },
+          { value: "available", label: "可领取", count: tasks.filter((t) => t.status === "available").length },
+          { value: "executing", label: "执行中", count: tasks.filter((t) => t.status === "executing").length },
+          { value: "evidence_submitted", label: "待审核", count: tasks.filter((t) => t.status === "evidence_submitted").length },
+          { value: "rejected", label: "已驳回", count: tasks.filter((t) => t.status === "rejected").length },
+          { value: "paid", label: "已发放", count: tasks.filter((t) => t.status === "paid").length },
+        ]}
+      />
 
       <>
-        <Card className="hidden md:block">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-14 text-center">
+            <Gift className="mb-3 size-9 text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">
+              暂无{ filter !== 'all' && ({ available: '可领取', executing: '执行中', evidence_submitted: '待审核', rejected: '已驳回', paid: '已发放' } as Record<string,string>)[filter] }任务
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/60">
+              {filter === 'available' ? '平台发布任务后会在这里显示' : '切换其他分类查看'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Card className="hidden md:block">
           <CardContent className="pt-4">
             <Table>
               <TableHeader>
@@ -445,6 +445,8 @@ export default function RedPacketPage() {
             );
           })}
         </div>
+          </>
+        )}
       </>
 
       <Dialog

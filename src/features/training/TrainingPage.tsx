@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useStore } from '@/stores'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { SubsectionTabs } from '@/components/shared/SubsectionTabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { MessageCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { TrainingResource } from '@/types'
 
 const categoryLabels: Record<TrainingResource['category'], string> = {
@@ -38,7 +38,7 @@ export default function TrainingPage() {
     setQaLoading(true)
     setTimeout(() => {
       const matched = publishedResources.find((r) => `${r.title}${r.summary}${r.content}`.includes(qaInput.trim()))
-      setQaAnswer(`关于"${qaInput}"的解答：\n\n${matched ? `参考资料：《${matched.title}》。${matched.summary}` : '当前知识库未命中完全匹配条目，以下为通用业务建议。'}\n\n1. 先确认客户用能现状、屋顶/负荷/设备痛点和决策链\n2. 用当地政策、同行案例和投资回收期降低首次沟通门槛\n3. 将客户动作沉淀到CRM，按30/60/180天规则推进\n4. 需要话术时可切换到“常用话术”分类复用模板`)
+      setQaAnswer(`关于"${qaInput}"的解答：\n\n${matched ? `参考资料：《${matched.title}》。${matched.summary}` : '当前知识库未命中完全匹配条目，以下为通用业务建议。'}\n\n1. 先确认客户用能现状、屋顶/负荷/设备痛点和决策链\n2. 用当地政策、同行案例和投资回收期降低首次沟通门槛\n3. 将客户动作沉淀到CRM，按30/60/180天规则推进\n4. 需要话术时可切换到"常用话术"分类复用模板`)
       setQaLoading(false)
     }, 2000)
   }, [qaInput, publishedResources])
@@ -48,21 +48,16 @@ export default function TrainingPage() {
       <PageHeader title="培训系统" description="项目开发技巧、专业知识和AI答疑" />
       <Input placeholder="搜索培训资源..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm mb-4 w-full" />
 
-      <div className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1 sm:grid-cols-3 lg:flex lg:w-fit lg:max-w-full lg:flex-wrap">
-        {Object.entries(categoryLabels).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveCategory(key as TrainingResource['category'])}
-            className={cn(
-              'min-w-0 rounded-xl px-2 py-2 text-center text-[12px] font-medium leading-tight transition-colors',
-              activeCategory === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/70',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SubsectionTabs
+        active={activeCategory}
+        onChange={(v) => setActiveCategory(v as TrainingResource['category'])}
+        tabs={Object.entries(categoryLabels).map(([key, label]) => ({
+          value: key,
+          label,
+          count: filtered(key).length,
+        }))}
+      />
+
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filtered(activeCategory).map((r) => (
           <Card key={r.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => setSelected(r)}>

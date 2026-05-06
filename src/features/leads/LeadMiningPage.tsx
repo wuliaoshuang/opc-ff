@@ -326,7 +326,7 @@ export default function LeadMiningPage() {
         description="设定关键词与资源标签，AI 自动匹配潜在项目并输出开发策略"
       />
 
-      <section className={`${heroClass} p-4 md:p-5`}>
+      <section className={`${heroClass} p-4 md:p-5 mb-4`}>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] text-white/55">线索雷达</p>

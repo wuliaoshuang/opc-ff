@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useStore } from '@/stores'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
+import { SubsectionTabs } from '@/components/shared/SubsectionTabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -165,23 +166,15 @@ export default function BindingPage() {
       </div>
 
       <div>
-        <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1 sm:grid-cols-3 lg:inline-grid lg:grid-cols-5">
-          {stageFilters.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setFilter(s.value)}
-              className={cn(
-                'min-w-0 rounded-xl px-2 py-2 text-[12px] font-medium leading-tight transition-colors',
-                filter === s.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/70',
-              )}
-            >
-              {s.label}
-              {s.value !== 'all' && (
-                <span className="ml-1 opacity-70">({visibleBindings.filter((b) => b.stage === s.value).length})</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <SubsectionTabs
+          active={filter}
+          onChange={setFilter}
+          tabs={stageFilters.map((s) => ({
+            value: s.value,
+            label: s.label,
+            count: s.value === 'all' ? undefined : visibleBindings.filter((b) => b.stage === s.value).length,
+          }))}
+        />
       </div>
 
       <Card className="hidden md:block">
