@@ -8,13 +8,15 @@ export const mockAdminLeads: AdminLeadRecord[] = mockLeads.map((lead, i) => ({
   updatedAt: `2026-05-0${Math.min(i + 1, 5)}`,
 }))
 
-export const mockWhiteLabelConfig: WhiteLabelConfig = {
-  systemName: '零碳能源OPC平台',
-  logoUrl: '',
-  primaryColor: '#3730a3',
-  contactEmail: 'admin@opc-energy.com',
-  auditStatus: 'approved',
-  auditNote: '已通过平台贴牌资格审核',
+export const mockWhiteLabelConfigs: Record<string, WhiteLabelConfig> = {
+  'p-001': { partnerId: 'p-001', partnerName: '张伟', systemName: '张伟综合能源', logoUrl: '', primaryColor: '#0ea5e9', contactEmail: 'zhangwei@opc.com', auditStatus: 'approved', auditNote: '平台审核通过，品牌已生效', approvedSnapshot: { systemName: '张伟综合能源', logoUrl: '', primaryColor: '#0ea5e9' } },
+  'p-002': { partnerId: 'p-002', partnerName: '李明', systemName: '明光节能服务', logoUrl: '', primaryColor: '#7c3aed', contactEmail: 'liming@opc.com', auditStatus: 'pending', auditNote: '已提交，等待平台审核' },
+  'p-003': { partnerId: 'p-003', partnerName: '王强', systemName: '深圳王强OPC', logoUrl: '', primaryColor: '#059669', contactEmail: 'wangqiang@opc.com', auditStatus: 'approved', auditNote: '平台审核通过，品牌已生效', approvedSnapshot: { systemName: '深圳王强OPC', logoUrl: '', primaryColor: '#059669' } },
+  'p-004': { partnerId: 'p-004', partnerName: '赵刚', systemName: '', logoUrl: '', primaryColor: '#3730a3', contactEmail: '', auditStatus: 'draft' },
+  'p-005': { partnerId: 'p-005', partnerName: '陈丽', systemName: '', logoUrl: '', primaryColor: '#3730a3', contactEmail: '', auditStatus: 'draft' },
+  'p-006': { partnerId: 'p-006', partnerName: '刘洋', systemName: '', logoUrl: '', primaryColor: '#3730a3', contactEmail: '', auditStatus: 'draft' },
+  'p-007': { partnerId: 'p-007', partnerName: '孙涛', systemName: '', logoUrl: '', primaryColor: '#3730a3', contactEmail: '', auditStatus: 'draft' },
+  'p-008': { partnerId: 'p-008', partnerName: '周芳', systemName: '', logoUrl: '', primaryColor: '#3730a3', contactEmail: '', auditStatus: 'draft' },
 }
 
 export const mockProducts: ProductItem[] = [

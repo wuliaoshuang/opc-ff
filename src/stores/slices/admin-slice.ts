@@ -5,13 +5,13 @@ import type {
   WhiteLabelConfig,
   ProductItem,
 } from '@/types'
-import { mockAdminLeads, mockWhiteLabelConfig, mockProducts } from '@/mocks/data/admin'
+import { mockAdminLeads, mockWhiteLabelConfigs, mockProducts } from '@/mocks/data/admin'
 import { mockPartners } from '@/mocks/data/partners'
 
 export interface AdminSlice {
   adminLeads: AdminLeadRecord[]
   partners: PartnerPerformance[]
-  whiteLabelConfig: WhiteLabelConfig
+  whiteLabelConfigs: Record<string, WhiteLabelConfig>
   products: ProductItem[]
   setAdminLeads: (leads: AdminLeadRecord[]) => void
   updateLeadAssignment: (leadId: string, partner: string) => void
@@ -23,14 +23,14 @@ export interface AdminSlice {
   addProduct: (product: ProductItem) => void
   updateProduct: (id: string, patch: Partial<ProductItem>) => void
   deleteProduct: (id: string) => void
-  setWhiteLabelConfig: (config: WhiteLabelConfig) => void
+  setPartnerWhiteLabelConfig: (partnerId: string, config: WhiteLabelConfig) => void
   toggleProductStatus: (id: string) => void
 }
 
 export const createAdminSlice: StateCreator<AdminSlice> = (set) => ({
   adminLeads: mockAdminLeads,
   partners: mockPartners,
-  whiteLabelConfig: mockWhiteLabelConfig,
+  whiteLabelConfigs: mockWhiteLabelConfigs,
   products: mockProducts,
   setAdminLeads: (leads) => set({ adminLeads: leads }),
   updateLeadAssignment: (leadId, partner) =>
@@ -103,7 +103,10 @@ export const createAdminSlice: StateCreator<AdminSlice> = (set) => ({
     set((state) => ({
       products: state.products.filter((product) => product.id !== id),
     })),
-  setWhiteLabelConfig: (config) => set({ whiteLabelConfig: config }),
+  setPartnerWhiteLabelConfig: (partnerId, config) =>
+    set((state) => ({
+      whiteLabelConfigs: { ...state.whiteLabelConfigs, [partnerId]: config },
+    })),
   toggleProductStatus: (id) =>
     set((state) => ({
       products: state.products.map((p) =>

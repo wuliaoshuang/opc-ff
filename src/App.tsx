@@ -19,6 +19,8 @@ const AigcPage = lazy(() => import('@/features/aigc/AigcPage'))
 const RedPacketPage = lazy(() => import('@/features/incentives/RedPacketPage'))
 const SettlementPage = lazy(() => import('@/features/incentives/SettlementPage'))
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'))
+const AccountSettingsPage = lazy(() => import('@/features/profile/AccountSettingsPage'))
+const PartnerWhiteLabelPage = lazy(() => import('@/features/profile/PartnerWhiteLabelPage'))
 
 const AdminDashboardPage = lazy(() => import('@/features/admin/AdminDashboardPage'))
 const LeadConsolePage = lazy(() => import('@/features/admin/LeadConsolePage'))
@@ -77,6 +79,8 @@ const router = createHashRouter([
       { path: 'red-packets', element: <LazyPage><RedPacketPage /></LazyPage> },
       { path: 'settlement', element: <LazyPage><SettlementPage /></LazyPage> },
       { path: 'profile', element: <LazyPage><ProfilePage /></LazyPage> },
+      { path: 'account-settings', element: <LazyPage><AccountSettingsPage /></LazyPage> },
+      { path: 'white-label', element: <LazyPage><PartnerWhiteLabelPage /></LazyPage> },
     ],
   },
   {
@@ -96,6 +100,7 @@ const router = createHashRouter([
       { path: 'training', element: <LazyPage><AdminTrainingPage /></LazyPage> },
       { path: 'aigc', element: <LazyPage><AdminAigcPage /></LazyPage> },
       { path: 'profile', element: <LazyPage><ProfilePage /></LazyPage> },
+      { path: 'account-settings', element: <LazyPage><AccountSettingsPage /></LazyPage> },
     ],
   },
   { path: '*', element: <Navigate to="/login" replace /> },

@@ -35,7 +35,7 @@ export const useStore = create<StoreState>()(
         projects: state.projects,
         adminLeads: state.adminLeads,
         partners: state.partners,
-        whiteLabelConfig: state.whiteLabelConfig,
+        whiteLabelConfigs: state.whiteLabelConfigs,
         products: state.products,
         bindings: state.bindings,
         subPartners: state.subPartners,

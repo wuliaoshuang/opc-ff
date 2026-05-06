@@ -37,6 +37,8 @@ import {
   ChevronLeft,
   MoreHorizontal,
   Link2,
+  UserCircle,
+  Settings,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -123,6 +125,23 @@ const partnerNav: NavGroup[] = [
       },
     ],
   },
+  {
+    title: "个人",
+    items: [
+      {
+        label: "个人中心",
+        sub: "账号资料",
+        icon: UserCircle,
+        path: "/partner/profile",
+      },
+      {
+        label: "账号设置",
+        sub: "信息与密码",
+        icon: Settings,
+        path: "/partner/account-settings",
+      },
+    ],
+  },
 ];
 
 const adminNav: NavGroup[] = [
@@ -202,6 +221,23 @@ const adminNav: NavGroup[] = [
       },
     ],
   },
+  {
+    title: "个人",
+    items: [
+      {
+        label: "个人中心",
+        sub: "账号资料",
+        icon: UserCircle,
+        path: "/admin/profile",
+      },
+      {
+        label: "账号设置",
+        sub: "信息与密码",
+        icon: Settings,
+        path: "/admin/account-settings",
+      },
+    ],
+  },
 ];
 
 function SidebarContent({ groups }: { groups: NavGroup[] }) {
@@ -259,26 +295,47 @@ export default function AppLayout() {
   const groups = isAdmin ? adminNav : partnerNav;
   const userInitial = user?.name?.[0] ?? "?";
 
+  const whiteLabelConfigs = useStore((s) => s.whiteLabelConfigs);
+  const myBrand = !isAdmin && user ? whiteLabelConfigs[user.id] : null;
+  const activeBrand = myBrand?.auditStatus === "approved" ? myBrand : null;
+  const effectiveSnapshot = activeBrand
+    ? { systemName: activeBrand.systemName, logoUrl: activeBrand.logoUrl, primaryColor: activeBrand.primaryColor }
+    : (myBrand?.approvedSnapshot ?? null);
+  const brandName = effectiveSnapshot?.systemName || "OPC 平台";
+  const brandSub = isAdmin ? "管理后台" : "合伙人中心";
+  const brandColor = effectiveSnapshot?.primaryColor ?? undefined;
+  const brandLogo = effectiveSnapshot?.logoUrl ?? null;
+
   const allItems = groups.flatMap((g) => g.items);
   const profilePath = isAdmin ? "/admin/profile" : "/partner/profile";
-  const profileNav: NavItem = {
-    label: "个人中心",
-    sub: "账号资料",
-    icon: Users,
-    path: profilePath,
-  };
-  const currentNav = location.pathname.startsWith(profilePath)
-    ? profileNav
-    : allItems.find((item) => location.pathname.startsWith(item.path));
-  const currentGroup = location.pathname.startsWith(profilePath)
-    ? { title: "账号", items: [profileNav] }
-    : groups.find((group) =>
-        group.items.some((item) => location.pathname.startsWith(item.path)),
-      );
+  const currentNav = allItems.find((item) =>
+    location.pathname.startsWith(item.path),
+  );
+  const currentGroup = groups.find((group) =>
+    group.items.some((item) => location.pathname.startsWith(item.path)),
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!isAdmin && brandColor) {
+      root.style.setProperty("--primary", brandColor);
+      root.style.setProperty("--primary-foreground", "#ffffff");
+      root.style.setProperty("--ring", brandColor);
+    } else {
+      root.style.removeProperty("--primary");
+      root.style.removeProperty("--primary-foreground");
+      root.style.removeProperty("--ring");
+    }
+    return () => {
+      root.style.removeProperty("--primary");
+      root.style.removeProperty("--primary-foreground");
+      root.style.removeProperty("--ring");
+    };
+  }, [isAdmin, brandColor]);
 
   const handleLogout = () => {
     logout();
@@ -288,13 +345,20 @@ export default function AppLayout() {
   const sidebarInner = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Zap className="size-4" />
+        <div
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground overflow-hidden"
+          style={brandColor ? { backgroundColor: brandColor } : undefined}
+        >
+          {brandLogo ? (
+            <img src={brandLogo} alt="logo" className="size-8 object-cover" />
+          ) : (
+            <Zap className="size-4" />
+          )}
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold">OPC 平台</span>
-          <span className="text-[10px] text-muted-foreground">
-            {isAdmin ? "管理后台" : "合伙人中心"}
+        <div className="flex w-[168px] flex-col overflow-hidden">
+          <span className="truncate text-sm font-semibold">{brandName}</span>
+          <span className="truncate text-[10px] text-muted-foreground">
+            {brandSub}
           </span>
         </div>
       </div>
@@ -379,6 +443,8 @@ export default function AppLayout() {
           "/partner/training",
           "/partner/aigc",
           "/partner/profile",
+          "/partner/account-settings",
+          "/partner/white-label",
         ],
       },
     ];
@@ -420,6 +486,7 @@ export default function AppLayout() {
           "/admin/aigc",
           "/admin/settlements",
           "/admin/profile",
+          "/admin/account-settings",
         ],
       },
     ];
@@ -458,11 +525,24 @@ export default function AppLayout() {
                     }
                   />
                 )}
-                <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-                  <Zap className="size-3.5 text-primary-foreground" />
+                <div
+                  className="flex size-7 items-center justify-center rounded-lg bg-primary overflow-hidden"
+                  style={
+                    brandColor ? { backgroundColor: brandColor } : undefined
+                  }
+                >
+                  {brandLogo ? (
+                    <img
+                      src={brandLogo}
+                      alt="logo"
+                      className="size-7 object-cover"
+                    />
+                  ) : (
+                    <Zap className="size-3.5 text-primary-foreground" />
+                  )}
                 </div>
-                <span className="text-[15px] font-bold tracking-tight">
-                  OPC
+                <span className="max-w-[80px] truncate text-[15px] font-bold tracking-tight">
+                  {effectiveSnapshot?.systemName ?? "OPC"}
                 </span>
               </div>
               {currentNav && (
@@ -679,7 +759,7 @@ export default function AppLayout() {
         {sidebarInner}
       </aside>
       <div className="flex h-full flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b px-5">
+        <header className="flex h-15 shrink-0 items-center justify-between border-b px-5">
           <div className="flex items-center gap-2">
             {currentNav && (
               <>

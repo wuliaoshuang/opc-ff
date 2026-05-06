@@ -135,12 +135,19 @@ export interface AdminLeadRecord extends PotentialLead {
 }
 
 export interface WhiteLabelConfig {
+  partnerId?: string
+  partnerName?: string
   systemName: string
   logoUrl: string
   primaryColor: string
   contactEmail: string
   auditStatus: 'draft' | 'pending' | 'approved' | 'rejected'
   auditNote?: string
+  approvedSnapshot?: {
+    systemName: string
+    logoUrl: string
+    primaryColor: string
+  }
 }
 
 export interface ProductItem {
