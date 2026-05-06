@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { CrmProject, ProjectStage, ContactPerson } from '@/types'
+import type { CrmProject, ProjectStage, ContactPerson, FollowupLog } from '@/types'
 import { mockCrmProjects } from '@/mocks/data/crm'
 
 export interface CrmSlice {
@@ -9,6 +9,10 @@ export interface CrmSlice {
   updateContact: (id: string, contact: ContactPerson) => void
   fillContactAndAdvance: (id: string, contact: ContactPerson) => void
   requestOnlineMeeting: (id: string) => void
+  confirmOnlineMeeting: (id: string) => void
+  signProject: (id: string, note: string) => void
+  addFollowupLog: (id: string, log: FollowupLog) => void
+  updateContactPerson: (id: string, contact: ContactPerson) => void
   releaseProjectByCompany: (companyName: string, reason?: string) => void
   updateProjectOwnerByCompany: (companyName: string, partnerId: string, partnerName: string, reason?: string) => void
 }
@@ -61,6 +65,21 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
       projects: state.projects.map((p) => {
         if (p.id !== id || p.stage !== 'contact_filled') return p
         const now = new Date().toISOString().split('T')[0]
+        return {
+          ...p,
+          stage: 'online_meeting' as ProjectStage,
+          followupLogs: [
+            ...p.followupLogs,
+            { date: now, action: '申请线上接洽', result: '已提交申请，等待平台安排' },
+          ],
+        }
+      }),
+    })),
+  confirmOnlineMeeting: (id) =>
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== id) return p
+        const now = new Date().toISOString().split('T')[0]
         const exclusiveEnd = new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0]
         return {
           ...p,
@@ -70,7 +89,45 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
           isExclusive: true,
           followupLogs: [
             ...p.followupLogs,
-            { date: now, action: '线上接洽完成', result: `已进入180天排他保护期，保护至${exclusiveEnd}` },
+            { date: now, action: '线上接洽完成', result: `已进入180天排他保护期，保护至 ${exclusiveEnd}` },
+          ],
+        }
+      }),
+    })),
+  signProject: (id, note) =>
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== id) return p
+        const now = new Date().toISOString().split('T')[0]
+        return {
+          ...p,
+          stage: 'signed' as ProjectStage,
+          isExclusive: false,
+          isOverdue: false,
+          followupLogs: [
+            ...p.followupLogs,
+            { date: now, action: '确认签单', result: note || '项目已签单，进入结算流程' },
+          ],
+        }
+      }),
+    })),
+  addFollowupLog: (id, log) =>
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === id ? { ...p, followupLogs: [...p.followupLogs, log] } : p,
+      ),
+    })),
+  updateContactPerson: (id, contact) =>
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== id) return p
+        const now = new Date().toISOString().split('T')[0]
+        return {
+          ...p,
+          contactPerson: contact,
+          followupLogs: [
+            ...p.followupLogs,
+            { date: now, action: '更新对接人信息', result: `${contact.name}（${contact.role}）信任度${contact.trustLevel}/决策度${contact.decisionLevel}` },
           ],
         }
       }),
