@@ -355,7 +355,7 @@ export default function BindingPage() {
                         applyOnlineMeeting(detail.id)
                         const project = projects.find((p) => p.companyName === detail.customerName && p.stage === 'contact_filled')
                         if (project) requestOnlineMeeting(project.id)
-                        toast.success(`已申请线上接洽，「${detail.customerName}」已进入排他保护阶段`)
+                        toast.success(`已申请线上接洽，「${detail.customerName}」等待平台确认后进入排他保护`)
                         setDetail(null)
                       }}
                     >

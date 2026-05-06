@@ -59,30 +59,43 @@ export default function PartnerDashboardPage() {
   );
   const [aigcDialogOpen, setAigcDialogOpen] = useState(false);
 
-  const shortTermEarned = redPacketTasks
+  const myProjects = projects.filter(
+    (p) => p.ownerPartnerId === user?.id || p.ownerPartnerName === user?.name,
+  );
+  const mySubIds = subPartners
+    .filter((s) => s.parentId === user?.id)
+    .map((s) => s.id);
+  const myCommissions = commissions.filter(
+    (c) => c.partnerId === user?.id || mySubIds.includes(c.partnerId),
+  );
+  const myRedPackets = redPacketTasks.filter(
+    (t) => t.claimedById === user?.id,
+  );
+
+  const shortTermEarned = myRedPackets
     .filter((t) => t.status === "paid")
     .reduce((sum, task) => sum + task.amount, 0);
-  const longTermPending = commissions
+  const longTermPending = myCommissions
     .filter((c) => c.status === "pending")
     .reduce((sum, commission) => sum + commission.amount, 0);
-  const longTermSettled = commissions
+  const longTermSettled = myCommissions
     .filter((c) => c.status === "settled")
     .reduce((sum, commission) => sum + commission.amount, 0);
   const availableLeads = leads.filter(
     (lead) => lead.status === "available",
   ).length;
-  const exclusiveProjects = projects.filter(
+  const exclusiveProjects = myProjects.filter(
     (project) => project.stage === "exclusive",
   ).length;
-  const signedCount = projects.filter(
+  const signedCount = myProjects.filter(
     (project) => project.stage === "signed",
   ).length;
 
-  const overdueProjects = projects.filter((project) => project.isOverdue);
+  const overdueProjects = myProjects.filter((project) => project.isOverdue);
   const getProjectLatestTime = (project: (typeof projects)[number]) =>
     latestOf(...project.followupLogs.map((log) => log.date), project.appliedAt);
   const urgentProjects = sortByNewest(
-    projects.filter(
+    myProjects.filter(
       (project) =>
         (project.stage === "applied" || project.stage === "contact_filled") &&
         !project.isOverdue,

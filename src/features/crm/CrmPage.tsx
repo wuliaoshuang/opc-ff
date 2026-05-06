@@ -93,13 +93,16 @@ export default function CrmPage() {
   const [logAction, setLogAction] = useState("");
   const [logResult, setLogResult] = useState("");
 
-  const sortedProjects = sortByNewest(projects, getProjectLatestTime);
+  const myProjects = projects.filter(
+    (p) => p.ownerPartnerId === user?.id || p.ownerPartnerName === user?.name,
+  );
+  const sortedProjects = sortByNewest(myProjects, getProjectLatestTime);
   const filtered = activeTab === "all" ? sortedProjects : sortedProjects.filter((p) => p.stage === activeTab);
-  const releasedProjects = projects.filter((p) => p.stage === "exclusive" && p.exclusiveEnd && daysUntil(p.exclusiveEnd) < 0).map((p) => p.companyName);
+  const releasedProjects = myProjects.filter((p) => p.stage === "exclusive" && p.exclusiveEnd && daysUntil(p.exclusiveEnd) < 0).map((p) => p.companyName);
   const showBanner = releasedProjects.length > 0 && !dismissedBanner;
-  const needsContact = projects.filter((p) => p.stage === "applied").length;
-  const needsMeeting = projects.filter((p) => p.stage === "contact_filled").length;
-  const exclusiveCount = projects.filter((p) => p.stage === "exclusive").length;
+  const needsContact = myProjects.filter((p) => p.stage === "applied").length;
+  const needsMeeting = myProjects.filter((p) => p.stage === "contact_filled").length;
+  const exclusiveCount = myProjects.filter((p) => p.stage === "exclusive").length;
 
   function openProject(project: CrmProject) {
     setSelectedProject(project);
@@ -177,9 +180,9 @@ export default function CrmPage() {
         active={activeTab}
         onChange={setActiveTab}
         tabs={[
-          { value: "all", label: "全部", count: projects.length },
+          { value: "all", label: "全部", count: myProjects.length },
           ...(Object.keys(stageConfig) as ProjectStage[]).map((stage) => ({
-            value: stage, label: stageConfig[stage].label, count: projects.filter((p) => p.stage === stage).length,
+            value: stage, label: stageConfig[stage].label, count: myProjects.filter((p) => p.stage === stage).length,
           })),
         ]}
       />
