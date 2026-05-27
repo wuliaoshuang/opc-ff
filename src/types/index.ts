@@ -6,19 +6,36 @@ export interface User {
   role: 'partner' | 'admin'
   region: string
   industry: string
+  adminLevel?: AdminLevel
+  adminRegionGroup?: RegionGroup
 }
 
 export type AccountStatus = 'pending' | 'approved' | 'rejected' | 'disabled'
 export type PartnerRelation = 'primary' | 'secondary'
+export type AdminLevel = 'super_admin' | 'region_admin'
+export type RegionGroup = '华东' | '华南' | '华北' | '华中西'
+
+export interface ResourceSurvey {
+  resourceTypes: string[]
+  keyPositions: string
+  publicRoles: string
+  associationCircles: string
+  notes: string
+}
 
 export interface AuthAccount extends User {
   username?: string
   password?: string
   market?: string
   workType?: string
+  socialRole?: string
+  businessCardUrl?: string
+  idCardImageUrl?: string
   idCardMasked?: string
   idCardVerified: boolean
   resourceTags: string[]
+  resourceSurvey?: ResourceSurvey
+  resourceKeywords?: string[]
   ownInviteCode?: string
   inviteCode?: string
   relation: PartnerRelation
@@ -33,6 +50,43 @@ export interface AuthAccount extends User {
 // Leads
 export type LeadStatus = 'available' | 'applied' | 'followed' | 'exclusive'
 export type LeadGrade = 'S' | 'A' | 'B' | 'C' | 'D'
+export type FilingStatus = 'none' | 'pending' | 'approved' | 'rejected'
+export type ProjectPhase16 =
+  | 'lead_in'
+  | 'qualification'
+  | 'resource_match'
+  | 'filing_apply'
+  | 'filing_review'
+  | 'priority_exclusive'
+  | 'contact_confirm'
+  | 'need_interview'
+  | 'site_survey'
+  | 'data_collect'
+  | 'solution_calc'
+  | 'proposal_review'
+  | 'commercial_quote'
+  | 'contract_negotiate'
+  | 'signed_execute'
+  | 'payment_archive'
+
+export const projectPhase16Labels: Record<ProjectPhase16, string> = {
+  lead_in: '线索入库',
+  qualification: '资格初筛',
+  resource_match: '资源匹配',
+  filing_apply: '申请备案',
+  filing_review: '备案审核',
+  priority_exclusive: '优先排他',
+  contact_confirm: '对接人确认',
+  need_interview: '需求访谈',
+  site_survey: '现场踏勘',
+  data_collect: '数据收资',
+  solution_calc: '方案测算',
+  proposal_review: '方案汇报',
+  commercial_quote: '商务报价',
+  contract_negotiate: '合同谈判',
+  signed_execute: '签约实施',
+  payment_archive: '回款归档',
+}
 
 export interface PotentialLead {
   id: string
@@ -47,6 +101,10 @@ export interface PotentialLead {
   aiMatchScore: number
   status: LeadStatus
   appliedBy?: string
+  grade?: LeadGrade
+  matchedKeywords?: string[]
+  exclusiveUntil?: string
+  filingStatus?: FilingStatus
   projectInfo: string
   businessInfo: string
 }
@@ -123,9 +181,27 @@ export interface CrmProject {
   exclusiveEnd?: string
   isExclusive: boolean
   isOverdue: boolean
-  source: 'manual' | 'lead'
+  source: 'manual' | 'lead' | 'filing'
+  filingStatus?: FilingStatus
+  filingSubmittedAt?: string
+  filingReviewedAt?: string
+  filingNote?: string
+  projectPhase16?: ProjectPhase16
+  referrerPartnerId?: string
+  referrerPartnerName?: string
+  bindingTags?: Array<'绑定' | '备案'>
   contractAmount?: number
   followupLogs: FollowupLog[]
+}
+
+export interface BusinessToolFile {
+  id: string
+  title: string
+  category: 'manual' | 'material' | 'script' | 'qa' | 'course'
+  fileName: string
+  dataUrl?: string
+  uploadedBy: string
+  uploadedAt: string
 }
 
 // Admin
@@ -291,7 +367,7 @@ export interface CommissionRecord {
   level: 'primary' | 'secondary'
   parentPartnerId?: string
   parentPartnerName?: string
-  status: 'pending' | 'settled' | 'frozen'
+  status: 'pending' | 'settled' | 'frozen' | 'voided'
   settledAt?: string
   paidAt?: string
   commissionRate: string

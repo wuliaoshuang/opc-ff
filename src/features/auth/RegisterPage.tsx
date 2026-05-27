@@ -8,10 +8,11 @@ import { StepBasicInfo } from './components/StepBasicInfo'
 import { StepIndustry } from './components/StepIndustry'
 import { StepTags } from './components/StepTags'
 import { normalizeInviteCode } from '@/lib/invite-code'
-import type { AuthAccount } from '@/types'
+import { extractResourceKeywords } from '@/lib/v1-config'
+import type { AuthAccount, ResourceSurvey } from '@/types'
 import type { StepBasicData, StepIndustryData } from './schemas'
 
-const stepLabels = ['基本信息', '行业信息', '资源标签'] as const
+const stepLabels = ['基本信息', '行业与证件', '资源调研'] as const
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -22,7 +23,7 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [basicData, setBasicData] = useState<StepBasicData>()
   const [industryData, setIndustryData] = useState<StepIndustryData>()
-  const [tagsData, setTagsData] = useState<string[]>([])
+  const [tagsData, setTagsData] = useState<{ resources: string[]; survey?: ResourceSurvey }>({ resources: [] })
   const inviteCodeFromUrl = normalizeInviteCode(searchParams.get('inviteCode') ?? '')
 
   const handleBasic = useCallback((data: StepBasicData) => {
@@ -42,8 +43,8 @@ export default function RegisterPage() {
   }, [])
 
   const handleSubmit = useCallback(
-    (resources: string[]) => {
-      setTagsData(resources)
+    (resources: string[], survey: ResourceSurvey) => {
+      setTagsData({ resources, survey })
       setIsSubmitting(true)
       setTimeout(() => {
         if (basicData && industryData) {
@@ -54,6 +55,13 @@ export default function RegisterPage() {
             return
           }
           const parent = inviteResult.parent
+          const resourceKeywords = extractResourceKeywords({
+            region: basicData.region,
+            industry: industryData.industry,
+            socialRole: basicData.socialRole,
+            resourceTags: resources,
+            resourceSurvey: survey,
+          })
           const account: AuthAccount = {
             id: `p-reg-${Date.now()}`,
             password: 'OPC123456',
@@ -64,7 +72,12 @@ export default function RegisterPage() {
             industry: industryData.industry,
             market: industryData.market,
             workType: basicData.workType,
+            socialRole: basicData.socialRole,
+            businessCardUrl: industryData.businessCardUrl,
+            idCardImageUrl: industryData.idCardImageUrl,
             resourceTags: resources,
+            resourceSurvey: survey,
+            resourceKeywords,
             idCardMasked: `${industryData.idCard.slice(0, 3)}***********${industryData.idCard.slice(-4)}`,
             idCardVerified: true,
             relation: parent ? 'secondary' : 'primary',
@@ -91,14 +104,14 @@ export default function RegisterPage() {
   )
 
   return (
-    <div className="relative min-h-svh overflow-hidden bg-background">
+    <div className="relative min-h-svh overflow-x-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-20 -left-20 size-80 rounded-full bg-indigo-400/20 blur-[120px] dark:bg-indigo-500/15" />
         <div className="absolute -bottom-24 left-1/4 size-72 rounded-full bg-cyan-400/15 blur-[110px] dark:bg-cyan-500/10" />
         <div className="absolute top-1/3 right-1/4 size-56 rounded-full bg-amber-400/10 blur-[90px] dark:bg-amber-500/8" />
       </div>
 
-      <div className="relative z-10 flex min-h-svh items-center justify-center p-4 sm:p-8">
+      <div className="relative z-10 flex min-h-svh items-start justify-center overflow-y-auto p-4 py-8 sm:p-8">
         <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-border/50 bg-background/60 p-8 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-col items-center gap-3 mb-6">
             <div className="flex size-12 items-center justify-center rounded-xl bg-foreground text-background">

@@ -21,6 +21,15 @@ export function StepIndustry({ defaultValues, onNext, onBack }: Props) {
     defaultValues,
   })
 
+  const readFile = (field: 'businessCardUrl' | 'idCardImageUrl', file?: File) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      if (event.target?.result) setValue(field, String(event.target.result), { shouldDirty: true })
+    }
+    reader.readAsDataURL(file)
+  }
+
   return (
     <form onSubmit={handleSubmit(onNext)} className="space-y-4">
       <div className="space-y-2">
@@ -48,6 +57,18 @@ export function StepIndustry({ defaultValues, onNext, onBack }: Props) {
         <Input placeholder="请输入18位身份证号" maxLength={18} {...register('idCard')} />
         {errors.idCard && <p className="text-sm text-destructive">{errors.idCard.message}</p>}
         <p className="text-[11px] text-muted-foreground">原型内完成格式校验并标记为已验证，正式接入时替换为实名核验接口。</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>名片上传</Label>
+          <Input type="file" accept="image/*" onChange={(event) => readFile('businessCardUrl', event.target.files?.[0])} />
+          <p className="text-[11px] text-muted-foreground">原型仅保存本地预览</p>
+        </div>
+        <div className="space-y-2">
+          <Label>身份证上传</Label>
+          <Input type="file" accept="image/*" onChange={(event) => readFile('idCardImageUrl', event.target.files?.[0])} />
+          <p className="text-[11px] text-muted-foreground">原型仅保存本地预览</p>
+        </div>
       </div>
       <div className="flex gap-3">
         <Button type="button" variant="outline" className="flex-1" onClick={onBack}>上一步</Button>

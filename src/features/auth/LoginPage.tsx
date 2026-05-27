@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Zap, Loader2 } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Zap, Loader2, MessageCircle, Smartphone, CheckCircle2, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 
 const loginSchema = z.object({
@@ -25,6 +28,44 @@ const features = [
   { title: '激励结算', desc: '红包任务 + 分佣透明，让努力看得见回报' },
 ]
 
+const channelConfigs = {
+  dingtalk: {
+    title: '钉钉消息入口接入',
+    desc: '用于从钉钉工作通知、消息卡片或企业工作台免登进入 OPC。',
+    applyUrl: 'https://open.dingtalk.com/',
+    applyLabel: '打开钉钉开放平台',
+    callback: 'https://your-domain.com/auth/dingtalk/callback',
+    params: ['企业 CorpId', '应用 AppKey / Client ID', '应用 AppSecret / Client Secret', '免登回调地址', '消息卡片跳转地址'],
+    steps: [
+      '用企业管理员账号进入钉钉开放平台。',
+      '创建企业内部应用，应用类型选择 H5 微应用/企业应用。',
+      '配置应用首页地址和免登回调地址。',
+      '开通通讯录身份读取权限，用免登 code 换用户身份。',
+      '在工作通知或消息卡片里配置跳转到 OPC 的业务页面。',
+    ],
+    test: '从钉钉消息卡片点击进入，系统应自动识别手机号/unionId 并进入对应合伙人或管理员账号。',
+  },
+  wechat: {
+    title: '微信小程序入口接入',
+    desc: '用于移动端小程序访问 OPC，承载合伙人看板、项目跟进和任务提醒。',
+    applyUrl: 'https://mp.weixin.qq.com/',
+    applyLabel: '打开微信公众平台',
+    callback: 'https://your-domain.com/auth/wechat-mini/session',
+    params: ['小程序 AppID', '小程序 AppSecret', '服务器域名 request 合法域名', '业务域名/web-view 域名', '登录 code2Session 接口'],
+    steps: [
+      '在微信公众平台注册小程序并完成主体认证。',
+      '进入开发管理获取 AppID，并生成 AppSecret。',
+      '配置服务器域名和业务域名，域名必须 HTTPS 且已备案。',
+      '小程序端调用 wx.login 获取 code，后端通过 code2Session 换 openid/session_key。',
+      '把 openid/unionid 与 OPC 合伙人账号绑定，再进入移动端页面。',
+    ],
+    test: '从小程序打开 OPC，首次绑定手机号或账号；再次进入应自动识别身份并进入首页看板。',
+  },
+} as const
+
+type ChannelKey = keyof typeof channelConfigs
+type ChannelAction = 'simulate' | 'setup'
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const loginWithAccount = useStore((s) => s.loginWithAccount)
@@ -32,6 +73,9 @@ export default function LoginPage() {
   const user = useStore((s) => s.user)
   const [activeTab, setActiveTab] = useState<'partner' | 'admin'>('partner')
   const [loading, setLoading] = useState(false)
+  const [channel, setChannel] = useState<ChannelKey | null>(null)
+  const [channelAction, setChannelAction] = useState<ChannelAction>('simulate')
+  const channelRedirectRef = useRef<string | null>(null)
 
   const {
     register,
@@ -42,6 +86,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      const channelRedirect = channelRedirectRef.current
+      if (channelRedirect) {
+        channelRedirectRef.current = null
+        navigate(channelRedirect)
+        return
+      }
       navigate(user?.role === 'admin' ? '/admin/dashboard' : '/partner/dashboard')
     }
   }, [isAuthenticated, navigate, user?.role])
@@ -64,6 +114,25 @@ export default function LoginPage() {
     }, 600)
   }
 
+  const openChannel = (nextChannel: ChannelKey, action: ChannelAction = 'simulate') => {
+    setChannel(nextChannel)
+    setChannelAction(action)
+  }
+
+  const simulateChannelLogin = (nextChannel: ChannelKey) => {
+    const targetPath = nextChannel === 'dingtalk'
+      ? '/partner/red-packets?from=dingtalk-message&task=rp-003'
+      : '/partner/dashboard?from=wechat-mini'
+    channelRedirectRef.current = targetPath
+    const result = loginWithAccount('zw001', 'OPC123456', 'partner')
+    if (!result.success) {
+      channelRedirectRef.current = null
+      toast.error(result.message)
+      return
+    }
+    toast.success(nextChannel === 'dingtalk' ? '已模拟钉钉消息跳转免登' : '已模拟微信小程序授权登录')
+  }
+
   return (
     <>
       <style>{`
@@ -73,13 +142,8 @@ export default function LoginPage() {
         }
       `}</style>
 
-      <div className="relative min-h-svh overflow-hidden bg-background">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-20 -left-20 size-80 rounded-full bg-indigo-400/20 blur-[120px] dark:bg-indigo-500/15" />
-          <div className="absolute top-1/4 right-1/3 size-64 rounded-full bg-rose-400/15 blur-[100px] dark:bg-rose-500/10" />
-          <div className="absolute -bottom-24 left-1/4 size-72 rounded-full bg-cyan-400/15 blur-[110px] dark:bg-cyan-500/10" />
-          <div className="absolute top-2/3 right-1/6 size-48 rounded-full bg-amber-400/10 blur-[90px] dark:bg-amber-500/8" />
-        </div>
+      <div className="relative min-h-svh overflow-x-hidden bg-background">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_20%_0%,rgba(14,165,233,0.12),transparent_34%),radial-gradient(circle_at_80%_10%,rgba(16,185,129,0.10),transparent_30%)]" />
 
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.02] mix-blend-overlay dark:opacity-[0.03]"
@@ -88,9 +152,9 @@ export default function LoginPage() {
           }}
         />
 
-        <div className="relative z-10 flex min-h-svh items-center justify-center p-4 sm:p-8">
+        <div className="relative z-10 flex min-h-svh items-start justify-center overflow-y-auto p-4 py-8 sm:p-8 lg:items-center">
           <div
-            className="flex w-full max-w-[980px] flex-col overflow-hidden rounded-[2rem] border border-border/50 bg-background/60 shadow-2xl backdrop-blur-xl lg:flex-row"
+            className="flex w-full max-w-[980px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/92 shadow-xl backdrop-blur-xl lg:flex-row"
             style={{ animation: 'login-reveal 0.8s cubic-bezier(.22,1,.36,1) both', animationDelay: '0.1s' }}
           >
             <div className="relative hidden w-1/2 flex-col justify-between bg-foreground/[0.03] p-10 lg:flex">
@@ -126,7 +190,7 @@ export default function LoginPage() {
                   <div className="flex size-12 items-center justify-center rounded-xl bg-foreground text-background">
                     <Zap className="size-6" />
                   </div>
-                  <h1 className="text-lg font-bold">OPC 平台</h1>
+                  <h1 className="text-lg font-bold">综合能源城市合伙人平台</h1>
                 </div>
 
                 <div className="hidden flex-col items-center pb-6 lg:flex">
@@ -171,15 +235,147 @@ export default function LoginPage() {
                   没有账号？立即注册
                 </button>
 
-                <p className="mt-8 text-center text-[11px] text-muted-foreground/50">
-                  合伙人演示账号：zw001 / OPC123456
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button type="button" variant="outline" className="gap-1.5" onClick={() => openChannel('dingtalk')}>
+                    <MessageCircle className="size-4" /> 钉钉消息入口
+                  </Button>
+                  <Button type="button" variant="outline" className="gap-1.5" onClick={() => openChannel('wechat')}>
+                    <Smartphone className="size-4" /> 小程序入口
+                  </Button>
+                </div>
+
+                <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground/70">
+                  合伙人演示账号：zw001 / OPC123456；华东区域管理员：east-admin / OPC@2026
                 </p>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <ChannelAccessDialog
+        action={channelAction}
+        channel={channel}
+        onOpenChange={(open) => !open && setChannel(null)}
+        onSetup={() => setChannelAction('setup')}
+        onSimulate={() => channel && simulateChannelLogin(channel)}
+      />
     </>
+  )
+}
+
+function ChannelAccessDialog({
+  action,
+  channel,
+  onOpenChange,
+  onSetup,
+  onSimulate,
+}: {
+  action: ChannelAction
+  channel: ChannelKey | null
+  onOpenChange: (open: boolean) => void
+  onSetup: () => void
+  onSimulate: () => void
+}) {
+  const config = channel ? channelConfigs[channel] : null
+  if (!config) return null
+
+  const copyCallback = async () => {
+    await navigator.clipboard.writeText(config.callback)
+    toast.success('回调地址已复制')
+  }
+
+  return (
+    <Dialog open={!!channel} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <DialogTitle>{config.title}</DialogTitle>
+            <Badge variant="secondary">{action === 'simulate' ? '原型可测试' : '待正式联调'}</Badge>
+          </div>
+          <DialogDescription>{config.desc}</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          {action === 'simulate' && (
+            <section className="rounded-xl border bg-muted/25 p-3">
+              <p className="text-[13px] font-medium">原型验收动作</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                {channel === 'dingtalk'
+                  ? '模拟用户从钉钉消息卡片点击红包任务提醒，免登进入对应业务入口。'
+                  : '模拟用户从微信小程序授权进入移动端 OPC 首页看板。'}
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <Button className="gap-1.5" onClick={onSimulate}>
+                  {channel === 'dingtalk' ? <MessageCircle className="size-4" /> : <Smartphone className="size-4" />}
+                  模拟进入系统
+                </Button>
+                <Button variant="outline" className="gap-1.5" onClick={onSetup}>
+                  <ExternalLink className="size-4" /> 查看申请配置
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {action === 'setup' && <section className="rounded-xl border bg-muted/25 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-medium">申请入口</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                  需要企业/主体管理员登录平台创建应用，拿到参数后交给开发接入。
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.open(config.applyUrl, '_blank', 'noopener,noreferrer')}>
+                <ExternalLink className="size-3.5" /> {config.applyLabel}
+              </Button>
+            </div>
+          </section>}
+
+          {action === 'setup' && <section>
+            <p className="mb-2 text-[13px] font-medium">需要申请/配置的参数</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {config.params.map((item) => (
+                <div key={item} className="flex items-center gap-2 rounded-lg border p-2 text-[12px]">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>}
+
+          {action === 'setup' && <section>
+            <p className="mb-2 text-[13px] font-medium">建议回调地址</p>
+            <div className="flex items-center gap-2 rounded-lg border bg-background p-2">
+              <code className="min-w-0 flex-1 truncate text-[12px]">{config.callback}</code>
+              <Button size="sm" variant="ghost" className="gap-1.5" onClick={copyCallback}>
+                <Copy className="size-3.5" /> 复制
+              </Button>
+            </div>
+          </section>}
+
+          {action === 'setup' && <Separator />}
+
+          {action === 'setup' && <section>
+            <p className="mb-2 text-[13px] font-medium">实施步骤</p>
+            <ol className="space-y-2">
+              {config.steps.map((step, index) => (
+                <li key={step} className="flex gap-2 text-[12px] leading-relaxed text-muted-foreground">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </section>}
+
+          <section className="rounded-xl border border-amber-500/20 bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+            <p className="font-medium">验收口径</p>
+            <p className="mt-1">{config.test}</p>
+          </section>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
