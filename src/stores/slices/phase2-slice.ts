@@ -33,6 +33,8 @@ export interface Phase2Slice {
   commissions: CommissionRecord[]
   incentiveTasks: IncentiveTask[]
   addBinding: (binding: CustomerBinding) => void
+  updateBinding: (id: string, patch: Partial<CustomerBinding>, operator?: string) => void
+  deleteBinding: (id: string) => void
   checkConflict: (customerName: string) => CustomerBinding | null
   addManualBinding: (customerName: string, industry: string, partnerId: string, partnerName: string) => { success: boolean; conflict?: CustomerBinding }
   advanceBindingStage: (id: string, action: string) => void
@@ -57,10 +59,14 @@ export interface Phase2Slice {
   submitEvidence: (id: string, evidence: { images: string[]; description: string }) => void
   reviewRedPacket: (id: string, approved: boolean, note?: string) => void
   addIncentiveTask: (task: IncentiveTask) => void
+  updateIncentiveTask: (id: string, patch: Partial<IncentiveTask>) => void
+  deleteIncentiveTask: (id: string) => void
   approveIncentiveTask: (id: string) => void
   closeIncentiveTask: (id: string) => void
   addCommission: (commission: CommissionRecord) => void
   updateCommission: (id: string, patch: Partial<CommissionRecord>) => void
+  deleteCommission: (id: string) => void
+  voidCommission: (id: string, note?: string) => void
   signProjectAndCreateCommissions: (params: {
     projectId: string
     projectName: string
@@ -93,6 +99,32 @@ export const createPhase2Slice: StateCreator<Phase2Slice> = (set, get) => ({
 
   addBinding: (binding) =>
     set((state) => ({ bindings: [...state.bindings, binding] })),
+
+  updateBinding: (id, patch, operator = '管理员') =>
+    set((state) => ({
+      bindings: state.bindings.map((binding) => {
+        if (binding.id !== id) return binding
+        const now = new Date().toISOString().split('T')[0]
+        const historyChanged = patch.stage && patch.stage !== binding.stage
+        const entry: BindingHistoryEntry = {
+          date: now,
+          from: binding.stage,
+          to: patch.stage ?? binding.stage,
+          action: historyChanged ? `后台调整阶段为${patch.stage}` : '后台编辑客户绑定信息',
+          operator,
+        }
+        return {
+          ...binding,
+          ...patch,
+          history: [...binding.history, entry],
+        }
+      }),
+    })),
+
+  deleteBinding: (id) =>
+    set((state) => ({
+      bindings: state.bindings.filter((binding) => binding.id !== id),
+    })),
 
   addManualBinding: (customerName, industry, partnerId, partnerName) => {
     const conflict = get().checkConflict(customerName)
@@ -310,6 +342,30 @@ export const createPhase2Slice: StateCreator<Phase2Slice> = (set, get) => ({
     }),
   addIncentiveTask: (task) =>
     set((state) => ({ incentiveTasks: [...state.incentiveTasks, task] })),
+  updateIncentiveTask: (id, patch) =>
+    set((state) => ({
+      incentiveTasks: state.incentiveTasks.map((task) =>
+        task.id === id ? { ...task, ...patch } : task,
+      ),
+      redPacketTasks: state.redPacketTasks.map((task) =>
+        task.id === `rp-${id}`
+          ? {
+              ...task,
+              name: patch.name ?? task.name,
+              projectName: patch.projectName ?? task.projectName,
+              amount: patch.amount ?? task.amount,
+              deadline: patch.deadline ?? task.deadline,
+              requirements: patch.requirements ?? task.requirements,
+              status: patch.status === 'closed' ? 'expired' as const : task.status,
+            }
+          : task,
+      ),
+    })),
+  deleteIncentiveTask: (id) =>
+    set((state) => ({
+      incentiveTasks: state.incentiveTasks.filter((task) => task.id !== id),
+      redPacketTasks: state.redPacketTasks.filter((task) => task.id !== `rp-${id}`),
+    })),
   approveIncentiveTask: (id) =>
     set((state) => ({
       incentiveTasks: state.incentiveTasks.map((t) =>
@@ -347,6 +403,23 @@ export const createPhase2Slice: StateCreator<Phase2Slice> = (set, get) => ({
     set((state) => ({
       commissions: state.commissions.map((commission) =>
         commission.id === id ? { ...commission, ...patch } : commission,
+      ),
+    })),
+  deleteCommission: (id) =>
+    set((state) => ({
+      commissions: state.commissions.filter((commission) => commission.id !== id),
+    })),
+  voidCommission: (id, note = '后台作废该分佣记录') =>
+    set((state) => ({
+      commissions: state.commissions.map((commission) =>
+        commission.id === id
+          ? {
+              ...commission,
+              status: 'voided' as const,
+              reviewNote: note,
+              operator: '管理员',
+            }
+          : commission,
       ),
     })),
   addSubPartner: (sub) =>

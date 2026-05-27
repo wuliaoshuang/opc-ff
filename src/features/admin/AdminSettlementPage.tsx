@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Banknote, FilePlus2, LockKeyhole, Send, WalletCards } from 'lucide-react'
+import { Banknote, FilePlus2, LockKeyhole, Send, Trash2, WalletCards } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { formatListTime, sortByNewest } from '@/lib/time'
 import type { CommissionRecord } from '@/types'
@@ -22,6 +23,7 @@ const statusLabels: Record<CommissionRecord['status'], { label: string; variant:
   pending: { label: '待结算', variant: 'outline' },
   settled: { label: '已结算', variant: 'default' },
   frozen: { label: '已冻结', variant: 'secondary' },
+  voided: { label: '已作废', variant: 'secondary' },
 }
 
 const emptyManual = {
@@ -40,12 +42,20 @@ export default function AdminSettlementPage() {
   const subPartners = useStore((s) => s.subPartners)
   const updateCommission = useStore((s) => s.updateCommission)
   const addCommission = useStore((s) => s.addCommission)
+  const deleteCommission = useStore((s) => s.deleteCommission)
+  const voidCommission = useStore((s) => s.voidCommission)
   const [status, setStatus] = useState<'all' | CommissionRecord['status']>('all')
   const [level, setLevel] = useState<'all' | CommissionRecord['level']>('all')
   const [selected, setSelected] = useState<CommissionRecord | null>(null)
   const [note, setNote] = useState('')
   const [manualOpen, setManualOpen] = useState(false)
   const [manual, setManual] = useState(emptyManual)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editing, setEditing] = useState<CommissionRecord | null>(null)
+  const [editForm, setEditForm] = useState(emptyManual)
+  const [deleteTarget, setDeleteTarget] = useState<CommissionRecord | null>(null)
+  const [voidTarget, setVoidTarget] = useState<CommissionRecord | null>(null)
+  const [confirmText, setConfirmText] = useState('')
 
   const filtered = useMemo(() => sortByNewest(commissions, (item) => item.settledAt ?? item.month).filter((item) => {
     const statusHit = status === 'all' || item.status === status
@@ -116,6 +126,72 @@ export default function AdminSettlementPage() {
     setManualOpen(false)
   }
 
+  const openEdit = (record: CommissionRecord) => {
+    setEditing(record)
+    setEditForm({
+      projectName: record.projectName,
+      partnerId: record.partnerId,
+      amount: String(record.amount),
+      type: record.type,
+      level: record.level,
+      commissionRate: record.commissionRate,
+      reviewNote: record.reviewNote ?? '',
+    })
+    setEditOpen(true)
+  }
+
+  const saveEdit = () => {
+    if (!editing) return
+    const amount = Number(editForm.amount)
+    if (!editForm.projectName.trim() || !editForm.partnerId || !Number.isFinite(amount) || amount <= 0) {
+      toast.error('请补全项目、合伙人和有效金额')
+      return
+    }
+    const parent = subPartners.find((item) => item.id === editForm.partnerId)
+    updateCommission(editing.id, {
+      projectName: editForm.projectName.trim(),
+      partnerId: editForm.partnerId,
+      amount,
+      type: editForm.type,
+      level: editForm.level,
+      parentPartnerId: parent?.parentId,
+      parentPartnerName: parent?.parentName,
+      commissionRate: editForm.commissionRate,
+      reviewNote: editForm.reviewNote || '后台编辑分佣记录',
+      operator: '管理员',
+    })
+    setSelected((current) => current?.id === editing.id ? { ...current, ...editing, projectName: editForm.projectName.trim(), partnerId: editForm.partnerId, amount, type: editForm.type, level: editForm.level, commissionRate: editForm.commissionRate, reviewNote: editForm.reviewNote } : current)
+    setEditOpen(false)
+    setEditing(null)
+    setEditForm(emptyManual)
+    toast.success('分佣记录已更新')
+  }
+
+  const handleVoid = (record: CommissionRecord) => {
+    if (confirmText !== record.projectName) {
+      toast.error('请输入项目名称确认作废')
+      return
+    }
+    voidCommission(record.id, note || '后台作废该分佣记录')
+    setSelected(null)
+    setVoidTarget(null)
+    setConfirmText('')
+    setNote('')
+    toast.warning('分佣记录已作废')
+  }
+
+  const handleDelete = (record: CommissionRecord) => {
+    if (confirmText !== record.projectName) {
+      toast.error('请输入项目名称确认删除')
+      return
+    }
+    deleteCommission(record.id)
+    setSelected(null)
+    setDeleteTarget(null)
+    setConfirmText('')
+    toast.warning('分佣记录已删除')
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -139,6 +215,7 @@ export default function AdminSettlementPage() {
               <SelectItem value="pending">待结算</SelectItem>
               <SelectItem value="settled">已结算</SelectItem>
               <SelectItem value="frozen">已冻结</SelectItem>
+              <SelectItem value="voided">已作废</SelectItem>
             </SelectContent>
           </Select>
           <Select value={level} onValueChange={(value) => setLevel(value as 'all' | CommissionRecord['level'])}>
@@ -224,9 +301,12 @@ export default function AdminSettlementPage() {
               </div>
               <Separator />
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <Button className="gap-1.5" disabled={selected.status === 'settled'} onClick={() => settle(selected)}><Banknote className="size-4" /> 结算</Button>
+                <Button className="gap-1.5" disabled={selected.status === 'settled' || selected.status === 'voided'} onClick={() => settle(selected)}><Banknote className="size-4" /> 结算</Button>
                 <Button variant="outline" className="gap-1.5" disabled={selected.status !== 'settled' || !!selected.paidAt} onClick={() => settle(selected, true)}><Send className="size-4" /> 标记发放</Button>
-                <Button variant="outline" className="gap-1.5" onClick={() => freeze(selected)}><LockKeyhole className="size-4" /> {selected.status === 'frozen' ? '解冻' : '冻结'}</Button>
+                <Button variant="outline" className="gap-1.5" disabled={selected.status === 'voided'} onClick={() => freeze(selected)}><LockKeyhole className="size-4" /> {selected.status === 'frozen' ? '解冻' : '冻结'}</Button>
+                <Button variant="outline" className="gap-1.5" onClick={() => openEdit(selected)}>编辑</Button>
+                <Button variant="outline" className="gap-1.5 text-destructive hover:text-destructive" disabled={selected.status === 'voided'} onClick={() => { setVoidTarget(selected); setConfirmText('') }}>作废</Button>
+                <Button variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { setDeleteTarget(selected); setConfirmText('') }}><Trash2 className="size-4" /> 删除</Button>
               </div>
             </div>
           </SheetContent>
@@ -273,6 +353,83 @@ export default function AdminSettlementPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Sheet open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) { setEditing(null); setEditForm(emptyManual) } }}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader><SheetTitle>编辑分佣记录</SheetTitle></SheetHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5"><Label>项目名称</Label><Input value={editForm.projectName} onChange={(event) => setEditForm({ ...editForm, projectName: event.target.value })} /></div>
+            <div className="space-y-1.5">
+              <Label>合伙人</Label>
+              <Select value={editForm.partnerId} onValueChange={(value) => { if (value) setEditForm({ ...editForm, partnerId: value }) }}>
+                <SelectTrigger><SelectValue placeholder="选择合伙人" /></SelectTrigger>
+                <SelectContent>
+                  {partners.map((item) => <SelectItem key={item.partnerId} value={item.partnerId}>{item.partnerName} · 一级</SelectItem>)}
+                  {subPartners.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} · 二级 · {item.parentName}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>金额</Label><Input value={editForm.amount} onChange={(event) => setEditForm({ ...editForm, amount: event.target.value })} /></div>
+              <div className="space-y-1.5"><Label>比例/来源</Label><Input value={editForm.commissionRate} onChange={(event) => setEditForm({ ...editForm, commissionRate: event.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>收益类型</Label>
+                <Select value={editForm.type} onValueChange={(value) => setEditForm({ ...editForm, type: value as CommissionRecord['type'] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="short_term">短期收益</SelectItem><SelectItem value="long_term">长期收益</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>分佣层级</Label>
+                <Select value={editForm.level} onValueChange={(value) => setEditForm({ ...editForm, level: value as CommissionRecord['level'] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="primary">一级</SelectItem><SelectItem value="secondary">二级</SelectItem></SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5"><Label>备注</Label><Textarea rows={3} value={editForm.reviewNote} onChange={(event) => setEditForm({ ...editForm, reviewNote: event.target.value })} /></div>
+            <Button className="w-full" onClick={saveEdit}>保存修改</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={!!voidTarget} onOpenChange={(open) => { if (!open) { setVoidTarget(null); setConfirmText('') } }}>
+        {voidTarget && (
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>作废分佣记录</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[12px] leading-relaxed text-destructive">
+                作废后该记录保留但不可再结算。请输入项目名称「{voidTarget.projectName}」确认作废。
+              </div>
+              <Input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={voidTarget.projectName} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setVoidTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={() => handleVoid(voidTarget)}>确认作废</Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setConfirmText('') } }}>
+        {deleteTarget && (
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>删除分佣记录</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[12px] leading-relaxed text-destructive">
+                删除后该分佣记录不再保留。请输入项目名称「{deleteTarget.projectName}」确认删除。
+              </div>
+              <Input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={deleteTarget.projectName} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={() => handleDelete(deleteTarget)}>确认删除</Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }

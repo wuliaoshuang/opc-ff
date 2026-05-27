@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { CheckCircle2, Search, Upload, XCircle, Zap } from 'lucide-react'
+import { CheckCircle2, RotateCcw, Search, Trash2, Upload, XCircle, Zap } from 'lucide-react'
 import type { WhiteLabelConfig } from '@/types'
 
 const auditLabels: Record<WhiteLabelConfig['auditStatus'], string> = {
@@ -29,14 +32,22 @@ export default function WhiteLabelPage() {
   const partners = useStore((s) => s.partners)
   const configs = useStore((s) => s.whiteLabelConfigs)
   const setPartnerConfig = useStore((s) => s.setPartnerWhiteLabelConfig)
+  const deletePartnerConfig = useStore((s) => s.deletePartnerWhiteLabelConfig)
 
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<WhiteLabelConfig['auditStatus'] | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [form, setForm] = useState<WhiteLabelConfig | null>(null)
+  const [auditNote, setAuditNote] = useState('')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
 
-  const filtered = partners.filter((p) =>
-    p.partnerName.includes(search) || p.region.includes(search)
-  )
+  const filtered = partners.filter((p) => {
+    const status = configs[p.partnerId]?.auditStatus ?? 'draft'
+    const keywordHit = !search || p.partnerName.includes(search) || p.region.includes(search)
+    const statusHit = statusFilter === 'all' || status === statusFilter
+    return keywordHit && statusHit
+  })
 
   const handleSelect = (partnerId: string) => {
     const partnerName = partners.find((p) => p.partnerId === partnerId)?.partnerName ?? ''
@@ -82,15 +93,42 @@ export default function WhiteLabelPage() {
       ...form,
       auditStatus: approved ? 'approved' : 'rejected',
       auditNote: approved
-        ? '平台审核通过，品牌已生效'
-        : '平台审核驳回，请检查品牌信息后重新提交',
+        ? auditNote.trim() || '平台审核通过，品牌已生效'
+        : auditNote.trim() || '平台审核驳回，请检查品牌信息后重新提交',
       approvedSnapshot: approved
         ? { systemName: form.systemName, logoUrl: form.logoUrl, primaryColor: form.primaryColor }
         : form.approvedSnapshot,
     }
     setPartnerConfig(selectedId, next)
     setForm(next)
+    setAuditNote('')
     toast[approved ? 'success' : 'error'](approved ? '已审核通过' : '已驳回')
+  }
+
+  const resetToDraft = () => {
+    if (!form || !selectedId) return
+    const next: WhiteLabelConfig = {
+      ...form,
+      auditStatus: 'draft',
+      auditNote: '后台恢复为草稿，可重新编辑提交',
+    }
+    setPartnerConfig(selectedId, next)
+    setForm(next)
+    toast.success('贴牌配置已恢复为草稿')
+  }
+
+  const removeConfig = () => {
+    if (!selectedId || !form) return
+    if (deleteConfirm !== form.partnerName) {
+      toast.error('请输入合伙人姓名确认删除')
+      return
+    }
+    deletePartnerConfig(selectedId)
+    setForm(null)
+    setSelectedId(null)
+    setDeleteOpen(false)
+    setDeleteConfirm('')
+    toast.warning('贴牌配置已删除')
   }
 
   return (
@@ -109,6 +147,16 @@ export default function WhiteLabelPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as WhiteLabelConfig['auditStatus'] | 'all')}>
+              <SelectTrigger className="mb-3 h-8 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="draft">未提交</SelectItem>
+                <SelectItem value="pending">审核中</SelectItem>
+                <SelectItem value="approved">已通过</SelectItem>
+                <SelectItem value="rejected">已驳回</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="space-y-0.5">
               {filtered.map((p) => {
                 const cfg = configs[p.partnerId]
@@ -212,19 +260,37 @@ export default function WhiteLabelPage() {
                 <Button onClick={handleSave} className="w-full">保存配置</Button>
 
                 {form.auditStatus === 'pending' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="gap-1.5 text-destructive hover:text-destructive"
-                      onClick={() => handleAudit(false)}
-                    >
-                      <XCircle className="size-3.5" /> 驳回
-                    </Button>
-                    <Button className="gap-1.5" onClick={() => handleAudit(true)}>
-                      <CheckCircle2 className="size-3.5" /> 审核通过
-                    </Button>
+                  <div className="space-y-2">
+                    <Textarea
+                      value={auditNote}
+                      onChange={(event) => setAuditNote(event.target.value)}
+                      className="min-h-20 resize-none text-[12px]"
+                      placeholder="审核备注（选填，驳回时建议填写原因）"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        className="gap-1.5 text-destructive hover:text-destructive"
+                        onClick={() => handleAudit(false)}
+                      >
+                        <XCircle className="size-3.5" /> 驳回
+                      </Button>
+                      <Button className="gap-1.5" onClick={() => handleAudit(true)}>
+                        <CheckCircle2 className="size-3.5" /> 审核通过
+                      </Button>
+                    </div>
                   </div>
                 )}
+
+                <Separator />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="gap-1.5" onClick={resetToDraft} disabled={form.auditStatus === 'draft'}>
+                    <RotateCcw className="size-3.5" /> 恢复草稿
+                  </Button>
+                  <Button variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 className="size-3.5" /> 删除配置
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -268,6 +334,22 @@ export default function WhiteLabelPage() {
           </Card>
         )}
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteConfirm('') }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>删除贴牌配置</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[12px] leading-relaxed text-destructive">
+              删除后该合伙人的品牌配置会回到未配置状态。请输入合伙人姓名「{form?.partnerName}」确认删除。
+            </div>
+            <Input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder={form?.partnerName} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>取消</Button>
+            <Button variant="destructive" onClick={removeConfig}>确认删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

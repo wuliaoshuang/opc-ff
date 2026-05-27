@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatListTime, latestOf, sortByNewest } from "@/lib/time";
+import { isRegionVisible } from "@/lib/v1-config";
 import type { LeadGrade } from "@/types";
 
 const gradeColors: Record<LeadGrade, string> = {
@@ -33,6 +34,7 @@ const gradeColors: Record<LeadGrade, string> = {
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
+  const user = useStore((s) => s.user);
   const accounts = useStore((s) => s.accounts);
   const adminLeads = useStore((s) => s.adminLeads);
   const partners = useStore((s) => s.partners);
@@ -43,16 +45,51 @@ export default function AdminDashboardPage() {
   const trainingResources = useStore((s) => s.trainingResources);
   const aigcTemplates = useStore((s) => s.aigcTemplates);
   const commissions = useStore((s) => s.commissions);
+
+  const canSeeRegion = (region: string) =>
+    user?.adminLevel !== "region_admin" ||
+    isRegionVisible(user.adminRegionGroup, region);
+  const visiblePartners = partners.filter((partner) =>
+    canSeeRegion(partner.region),
+  );
+  const visiblePartnerIds = new Set(
+    visiblePartners.map((partner) => partner.partnerId),
+  );
+  const visibleAdminLeads = adminLeads.filter((lead) =>
+    canSeeRegion(lead.region),
+  );
+  const getProjectRegion = (project: (typeof projects)[number]) => {
+    const leadRegion = project.leadId
+      ? adminLeads.find((lead) => lead.id === project.leadId)?.region
+      : undefined;
+    const partnerRegion = project.ownerPartnerId
+      ? partners.find((partner) => partner.partnerId === project.ownerPartnerId)
+          ?.region
+      : undefined;
+    return leadRegion ?? partnerRegion ?? "";
+  };
+  const visibleProjects = projects.filter((project) =>
+    canSeeRegion(getProjectRegion(project)),
+  );
+  const visibleBindings = bindings.filter((binding) =>
+    visiblePartnerIds.has(binding.partnerId),
+  );
+  const visibleAccounts = accounts.filter((account) =>
+    account.role !== "partner" || canSeeRegion(account.region),
+  );
+  const visibleCommissions = commissions.filter((item) =>
+    visiblePartnerIds.has(item.partnerId),
+  );
   const whiteLabelPending = Object.values(
     useStore((s) => s.whiteLabelConfigs),
-  ).filter((c) => c.auditStatus === "pending").length;
-  const overdueProjects = projects.filter(
+  ).filter((c) => c.auditStatus === "pending" && (!c.partnerId || visiblePartnerIds.has(c.partnerId))).length;
+  const overdueProjects = visibleProjects.filter(
     (project) => project.isOverdue,
   ).length;
-  const unassignedLeads = adminLeads.filter(
+  const unassignedLeads = visibleAdminLeads.filter(
     (lead) => lead.status === "available" && !lead.assignedPartner,
   ).length;
-  const expiringBindings = bindings.filter(
+  const expiringBindings = visibleBindings.filter(
     (binding) =>
       binding.status === "active" &&
       binding.stage !== "released" &&
@@ -71,10 +108,10 @@ export default function AdminDashboardPage() {
         (item) => item.type === type && item.status === "active",
       ),
   ).length;
-  const pendingCommissions = commissions.filter(
+  const pendingCommissions = visibleCommissions.filter(
     (item) => item.status === "pending",
   ).length;
-  const pendingAccounts = accounts.filter(
+  const pendingAccounts = visibleAccounts.filter(
     (account) => account.role === "partner" && account.status === "pending",
   ).length;
   const draftIncentives = incentiveTasks.filter(
@@ -84,25 +121,25 @@ export default function AdminDashboardPage() {
     (task) => task.status === "evidence_submitted",
   ).length;
 
-  const totalLeads = adminLeads.length;
-  const activePartners = partners.filter(
+  const totalLeads = visibleAdminLeads.length;
+  const activePartners = visiblePartners.filter(
     (partner) => partner.accountStatus !== "disabled" && partner.rating !== "D",
   ).length;
-  const exclusiveProjects = projects.filter(
+  const exclusiveProjects = visibleProjects.filter(
     (project) => project.stage === "exclusive",
   ).length;
-  const signedProjects = projects.filter(
+  const signedProjects = visibleProjects.filter(
     (project) => project.stage === "signed",
   ).length;
-  const activeProjects = projects.filter(
+  const activeProjects = visibleProjects.filter(
     (project) => !["released", "signed"].includes(project.stage),
   ).length;
   const signedRate = Math.round(
-    (signedProjects / Math.max(projects.length, 1)) * 100,
+    (signedProjects / Math.max(visibleProjects.length, 1)) * 100,
   );
 
   const stageCount = (stage: string) =>
-    projects.filter((project) => project.stage === stage).length;
+    visibleProjects.filter((project) => project.stage === stage).length;
   const funnelData = [
     { stage: "已申请", count: stageCount("applied") },
     { stage: "对接人", count: stageCount("contact_filled") },
@@ -184,11 +221,11 @@ export default function AdminDashboardPage() {
     },
   ];
   const queueTotal = workQueue.reduce((sum, item) => sum + item.count, 0);
-  const sortedPartners = [...partners].sort(
+  const sortedPartners = [...visiblePartners].sort(
     (a, b) => b.closedDeals - a.closedDeals,
   );
   const urgentProjects = sortByNewest(
-    projects.filter(
+    visibleProjects.filter(
       (project) =>
         project.isOverdue ||
         project.stage === "applied" ||

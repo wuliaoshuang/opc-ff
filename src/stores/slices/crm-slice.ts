@@ -1,11 +1,19 @@
 import type { StateCreator } from 'zustand'
-import type { CrmProject, ProjectStage, ContactPerson, FollowupLog } from '@/types'
+import type { CrmProject, ProjectStage, ContactPerson, FollowupLog, ProjectPhase16, FilingStatus } from '@/types'
 import { mockCrmProjects } from '@/mocks/data/crm'
+import { addDays } from '@/lib/v1-config'
+import { projectPhase16Labels } from '@/types'
 
 export interface CrmSlice {
   projects: CrmProject[]
   addProject: (project: CrmProject) => void
+  deleteProject: (id: string) => void
   updateProjectStage: (id: string, stage: ProjectStage) => void
+  updateProjectDetails: (id: string, patch: Partial<CrmProject>) => void
+  updateProjectPhase16: (id: string, phase: ProjectPhase16, operator?: string) => void
+  submitProjectFiling: (params: { leadId?: string; companyName: string; industry: string; partnerId: string; partnerName: string; note?: string }) => CrmProject
+  reviewProjectFiling: (id: string, approved: boolean, note?: string) => void
+  updateProjectReferrer: (id: string, partnerId: string, partnerName: string) => void
   updateContact: (id: string, contact: ContactPerson) => void
   fillContactAndAdvance: (id: string, contact: ContactPerson) => void
   requestOnlineMeeting: (id: string) => void
@@ -21,6 +29,106 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
   projects: mockCrmProjects,
   addProject: (project) =>
     set((state) => ({ projects: [...state.projects, project] })),
+  deleteProject: (id) =>
+    set((state) => ({
+      projects: state.projects.filter((project) => project.id !== id),
+    })),
+  updateProjectDetails: (id, patch) =>
+    set((state) => ({
+      projects: state.projects.map((project) =>
+        project.id === id ? { ...project, ...patch } : project,
+      ),
+    })),
+  updateProjectPhase16: (id, phase, operator = '管理员') =>
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== id) return project
+        const now = new Date().toISOString().split('T')[0]
+        return {
+          ...project,
+          projectPhase16: phase,
+          followupLogs: [
+            ...project.followupLogs,
+            { date: now, action: '更新16阶段进度', result: `${operator}将项目推进至${projectPhase16Labels[phase]}` },
+          ],
+        }
+      }),
+    })),
+  submitProjectFiling: (params) => {
+    const now = new Date().toISOString().split('T')[0]
+    const contactDeadline = addDays(30)
+    const meetingDeadline = addDays(60)
+    const project: CrmProject = {
+      id: `crm-filing-${Date.now()}`,
+      leadId: params.leadId,
+      companyName: params.companyName,
+      industry: params.industry,
+      ownerPartnerId: params.partnerId,
+      ownerPartnerName: params.partnerName,
+      referrerPartnerId: params.partnerId,
+      referrerPartnerName: params.partnerName,
+      stage: 'applied',
+      appliedAt: now,
+      contactDeadline,
+      meetingDeadline,
+      isExclusive: false,
+      isOverdue: false,
+      source: 'filing',
+      filingStatus: 'pending',
+      filingSubmittedAt: now,
+      filingNote: params.note,
+      projectPhase16: 'filing_review',
+      bindingTags: ['备案'],
+      followupLogs: [
+        { date: now, action: '提交项目备案', result: params.note || '等待后台管理员审核' },
+      ],
+    }
+    set((state) => ({ projects: [project, ...state.projects] }))
+    return project
+  },
+  reviewProjectFiling: (id, approved, note) =>
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== id) return project
+        const now = new Date().toISOString().split('T')[0]
+        const exclusiveEnd = addDays(60)
+        const filingStatus: FilingStatus = approved ? 'approved' : 'rejected'
+        return {
+          ...project,
+          filingStatus,
+          filingReviewedAt: now,
+          filingNote: note,
+          stage: approved ? 'exclusive' : project.stage,
+          projectPhase16: approved ? 'priority_exclusive' : 'filing_review',
+          exclusiveStart: approved ? now : project.exclusiveStart,
+          exclusiveEnd: approved ? exclusiveEnd : project.exclusiveEnd,
+          isExclusive: approved,
+          bindingTags: Array.from(new Set([...(project.bindingTags ?? []), '备案' as const])),
+          followupLogs: [
+            ...project.followupLogs,
+            { date: now, action: approved ? '备案审核通过' : '备案审核驳回', result: approved ? `进入2个月优先排他期，保护至 ${exclusiveEnd}` : (note || '请补充资料后重新提交') },
+          ],
+        }
+      }),
+    })),
+  updateProjectReferrer: (id, partnerId, partnerName) =>
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== id) return project
+        const now = new Date().toISOString().split('T')[0]
+        return {
+          ...project,
+          referrerPartnerId: partnerId,
+          referrerPartnerName: partnerName,
+          ownerPartnerId: project.ownerPartnerId ?? partnerId,
+          ownerPartnerName: project.ownerPartnerName ?? partnerName,
+          followupLogs: [
+            ...project.followupLogs,
+            { date: now, action: '后台编辑推荐人绑定', result: `推荐人调整为 ${partnerName}` },
+          ],
+        }
+      }),
+    })),
   updateProjectStage: (id, stage) =>
     set((state) => ({
       projects: state.projects.map((p) => {
@@ -29,6 +137,7 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
         return {
           ...p,
           stage,
+          projectPhase16: stage === 'signed' ? 'signed_execute' : stage === 'exclusive' ? 'priority_exclusive' : p.projectPhase16,
           isExclusive: stage === 'exclusive' ? true : stage === 'signed' || stage === 'released' ? false : p.isExclusive,
           isOverdue: stage === 'signed' ? false : p.isOverdue,
           followupLogs: [
@@ -84,6 +193,7 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
         return {
           ...p,
           stage: 'exclusive' as ProjectStage,
+          projectPhase16: 'priority_exclusive',
           exclusiveStart: now,
           exclusiveEnd,
           isExclusive: true,
@@ -102,6 +212,7 @@ export const createCrmSlice: StateCreator<CrmSlice> = (set) => ({
         return {
           ...p,
           stage: 'signed' as ProjectStage,
+          projectPhase16: 'signed_execute',
           contractAmount,
           isExclusive: false,
           isOverdue: false,

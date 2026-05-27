@@ -1,6 +1,7 @@
 import type { PotentialLead } from '@/types'
+import { inferLeadGrade } from '@/lib/v1-config'
 
-export const mockLeads: PotentialLead[] = [
+const baseLeads: PotentialLead[] = [
   {
     id: 'lead-001', companyName: '华能国际电力股份有限公司', industry: '电力', region: '北京',
     isListed: true, revenue: '2100亿', energyUsage: '极高', newProjectSize: '大型',
@@ -107,3 +108,10 @@ export const mockLeads: PotentialLead[] = [
     businessInfo: '中高价值线索，适合珠三角区域合伙人跟进。',
   },
 ]
+
+export const mockLeads: PotentialLead[] = baseLeads.map((lead) => ({
+  ...lead,
+  grade: inferLeadGrade(lead.aiMatchScore),
+  matchedKeywords: [lead.region, lead.industry, lead.newProjectProgress ?? '项目机会'].filter(Boolean),
+  filingStatus: 'none' as const,
+}))

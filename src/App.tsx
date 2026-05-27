@@ -25,6 +25,7 @@ const PartnerWhiteLabelPage = lazy(() => import('@/features/profile/PartnerWhite
 const AdminDashboardPage = lazy(() => import('@/features/admin/AdminDashboardPage'))
 const LeadConsolePage = lazy(() => import('@/features/admin/LeadConsolePage'))
 const PartnerManagementPage = lazy(() => import('@/features/admin/PartnerManagementPage'))
+const AdminAccountManagementPage = lazy(() => import('@/features/admin/AdminAccountManagementPage'))
 const WhiteLabelPage = lazy(() => import('@/features/admin/WhiteLabelPage'))
 const ProductShelfPage = lazy(() => import('@/features/admin/ProductShelfPage'))
 const IncentiveManagementPage = lazy(() => import('@/features/admin/IncentiveManagementPage'))
@@ -91,6 +92,7 @@ const router = createHashRouter([
       { path: 'dashboard', element: <LazyPage><AdminDashboardPage /></LazyPage> },
       { path: 'leads', element: <LazyPage><LeadConsolePage /></LazyPage> },
       { path: 'partners', element: <LazyPage><PartnerManagementPage /></LazyPage> },
+      { path: 'accounts', element: <LazyPage><AdminAccountManagementPage /></LazyPage> },
       { path: 'tracking', element: <LazyPage><BusinessTrackingPage /></LazyPage> },
       { path: 'bindings', element: <LazyPage><AdminBindingConsolePage /></LazyPage> },
       { path: 'white-label', element: <LazyPage><WhiteLabelPage /></LazyPage> },

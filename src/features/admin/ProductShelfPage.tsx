@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Package, Plus, Trash2 } from 'lucide-react'
+import { Package, Plus, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ProductItem } from '@/types'
 
@@ -28,6 +29,16 @@ export default function ProductShelfPage() {
   const [formRate, setFormRate] = useState('')
   const [formDesc, setFormDesc] = useState('')
   const [formTrainingLinked, setFormTrainingLinked] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ProductItem['status'] | 'all'>('all')
+  const [deleteTarget, setDeleteTarget] = useState<ProductItem | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+
+  const filteredProducts = products.filter((product) => {
+    const keywordHit = !search || `${product.name}${product.category}${product.description}${product.commissionRate}`.includes(search)
+    const statusHit = statusFilter === 'all' || product.status === statusFilter
+    return keywordHit && statusHit
+  })
 
   const openEditor = (product?: ProductItem) => {
     setEditing(product ?? null)
@@ -75,8 +86,14 @@ export default function ProductShelfPage() {
   }
 
   const removeProduct = (product: ProductItem) => {
+    if (deleteConfirm !== product.name) {
+      toast.error('请输入服务名称确认删除')
+      return
+    }
     deleteProduct(product.id)
     setDetail(null)
+    setDeleteTarget(null)
+    setDeleteConfirm('')
     toast.warning(`已删除「${product.name}」`)
   }
 
@@ -87,8 +104,26 @@ export default function ProductShelfPage() {
         description="仅管理一二期可推广的核心能源服务，不扩展三期供应链项目"
         action={<Button size="sm" className="gap-1.5" onClick={() => openEditor()}><Plus className="size-4" /> 新增服务</Button>}
       />
+
+      <section className="rounded-2xl border bg-card p-3">
+        <div className="grid gap-2 md:grid-cols-[1fr_180px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索服务、分类、说明、佣金" />
+          </div>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ProductItem['status'] | 'all')}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="active">上线</SelectItem>
+              <SelectItem value="inactive">下线</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {products.map((p) => (
+        {filteredProducts.map((p) => (
           <Card key={p.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDetail(p)}>
             <CardContent className="pt-4">
               <div className="flex items-start justify-between mb-2">
@@ -131,10 +166,28 @@ export default function ProductShelfPage() {
                   查看关联培训课程
                 </Button>
               )}
-              <Button variant="outline" className="w-full gap-1.5 text-destructive hover:text-destructive" onClick={() => removeProduct(detail)}>
+              <Button variant="outline" className="w-full gap-1.5 text-destructive hover:text-destructive" onClick={() => { setDeleteTarget(detail); setDeleteConfirm('') }}>
                 <Trash2 className="size-3.5" /> 删除服务
               </Button>
             </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirm('') } }}>
+        {deleteTarget && (
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>删除服务配置</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[12px] leading-relaxed text-destructive">
+                删除后合伙人端产品货架不再展示该服务。请输入服务名称「{deleteTarget.name}」确认删除。
+              </div>
+              <Input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder={deleteTarget.name} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={() => removeProduct(deleteTarget)}>确认删除</Button>
+            </DialogFooter>
           </DialogContent>
         )}
       </Dialog>

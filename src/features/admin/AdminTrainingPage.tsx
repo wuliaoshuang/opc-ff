@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
@@ -54,9 +55,12 @@ export default function AdminTrainingPage() {
   const deleteResource = useStore((s) => s.deleteTrainingResource)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<'all' | TrainingResource['category']>('all')
+  const [status, setStatus] = useState<'all' | NonNullable<TrainingResource['status']>>('all')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<TrainingResource | null>(null)
   const [form, setForm] = useState<ResourceForm>(emptyForm)
+  const [deleteTarget, setDeleteTarget] = useState<TrainingResource | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
 
   const normalized = useMemo(() => resources.map((item, index) => ({
     ...item,
@@ -69,8 +73,9 @@ export default function AdminTrainingPage() {
   const filtered = useMemo(() => sortByNewest(normalized, (item) => item.updatedAt).filter((item) => {
     const keywordHit = !search || `${item.title}${item.summary}${item.content}`.includes(search)
     const categoryHit = category === 'all' || item.category === category
-    return keywordHit && categoryHit
-  }), [normalized, search, category])
+    const statusHit = status === 'all' || item.status === status
+    return keywordHit && categoryHit && statusHit
+  }), [normalized, search, category, status])
 
   const openEditor = (resource?: TrainingResource) => {
     if (resource) {
@@ -107,6 +112,17 @@ export default function AdminTrainingPage() {
     setEditorOpen(false)
   }
 
+  const removeResource = (resource: TrainingResource) => {
+    if (deleteConfirm !== resource.title) {
+      toast.error('请输入标题确认删除')
+      return
+    }
+    deleteResource(resource.id)
+    setDeleteTarget(null)
+    setDeleteConfirm('')
+    toast.warning('培训内容已删除')
+  }
+
   const publishCount = normalized.filter((item) => item.status === 'published').length
   const draftCount = normalized.filter((item) => item.status === 'draft').length
   const aiCount = normalized.filter((item) => item.category === 'ai' && item.status === 'published').length
@@ -126,7 +142,7 @@ export default function AdminTrainingPage() {
       </div>
 
       <section className="rounded-2xl border bg-card p-3">
-        <div className="grid gap-2 md:grid-cols-[1fr_220px]">
+        <div className="grid gap-2 md:grid-cols-[1fr_180px_180px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="搜索标题、摘要、正文" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -136,6 +152,15 @@ export default function AdminTrainingPage() {
             <SelectContent>
               <SelectItem value="all">全部分类</SelectItem>
               {Object.entries(categoryLabels).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={(value) => setStatus(value as 'all' | NonNullable<TrainingResource['status']>)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="published">已发布</SelectItem>
+              <SelectItem value="draft">草稿</SelectItem>
+              <SelectItem value="archived">已下架</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -159,7 +184,7 @@ export default function AdminTrainingPage() {
                 <span>{typeLabels[item.type]} · 更新 {formatListTime(item.updatedAt)} · {item.createdBy}</span>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openEditor(item)}><Eye className="size-3.5" /> 编辑</Button>
-                  <Button size="sm" variant="outline" className="h-8 gap-1 text-destructive hover:text-destructive" onClick={() => { deleteResource(item.id); toast.warning('培训内容已删除') }}><Trash2 className="size-3.5" /> 删除</Button>
+                  <Button size="sm" variant="outline" className="h-8 gap-1 text-destructive hover:text-destructive" onClick={() => { setDeleteTarget(item); setDeleteConfirm('') }}><Trash2 className="size-3.5" /> 删除</Button>
                 </div>
               </div>
             </CardContent>
@@ -215,6 +240,24 @@ export default function AdminTrainingPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirm('') } }}>
+        {deleteTarget && (
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>删除培训内容</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[12px] leading-relaxed text-destructive">
+                删除后合伙人端业务工具箱不再展示该内容。请输入标题「{deleteTarget.title}」确认删除。
+              </div>
+              <Input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder={deleteTarget.title} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={() => removeResource(deleteTarget)}>确认删除</Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }

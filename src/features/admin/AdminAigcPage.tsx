@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
@@ -50,10 +51,15 @@ export default function AdminAigcPage() {
   const [editing, setEditing] = useState<AigcTemplate | null>(null)
   const [form, setForm] = useState<TemplateForm>(emptyForm)
   const [typeFilter, setTypeFilter] = useState<'all' | AigcTemplate['type']>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | AigcTemplate['status']>('all')
+  const [deleteTarget, setDeleteTarget] = useState<AigcTemplate | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
 
-  const filteredTemplates = useMemo(() => sortByNewest(templates, (item) => item.updatedAt).filter((item) =>
-    typeFilter === 'all' || item.type === typeFilter,
-  ), [templates, typeFilter])
+  const filteredTemplates = useMemo(() => sortByNewest(templates, (item) => item.updatedAt).filter((item) => {
+    const typeHit = typeFilter === 'all' || item.type === typeFilter
+    const statusHit = statusFilter === 'all' || item.status === statusFilter
+    return typeHit && statusHit
+  }), [templates, typeFilter, statusFilter])
 
   const activeCount = templates.filter((item) => item.status === 'active').length
   const missingTypes = (Object.keys(typeLabels) as AigcTemplate['type'][]).filter((type) =>
@@ -95,6 +101,19 @@ export default function AdminAigcPage() {
     setEditing(null)
   }
 
+  const removeTemplate = (template: AigcTemplate) => {
+    if (deleteConfirm !== template.title) {
+      toast.error('请输入模板标题确认删除')
+      return
+    }
+    deleteTemplate(template.id)
+    setDeleteTarget(null)
+    setDeleteConfirm('')
+    setEditorOpen(false)
+    setEditing(null)
+    toast.warning('模板已删除')
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -110,13 +129,24 @@ export default function AdminAigcPage() {
       </div>
 
       <section className="rounded-2xl border bg-card p-3">
-        <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as 'all' | AigcTemplate['type'])}>
-          <SelectTrigger className="md:max-w-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部类型</SelectItem>
-            {Object.entries(typeLabels).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="grid gap-2 md:grid-cols-[220px_180px]">
+          <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as 'all' | AigcTemplate['type'])}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部类型</SelectItem>
+              {Object.entries(typeLabels).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | AigcTemplate['status'])}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="active">启用</SelectItem>
+              <SelectItem value="draft">草稿</SelectItem>
+              <SelectItem value="archived">停用</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {missingTypes.length > 0 && (
           <p className="mt-2 text-xs text-amber-600">缺少启用模板：{missingTypes.map((type) => typeLabels[type]).join('、')}</p>
         )}
@@ -218,11 +248,29 @@ export default function AdminAigcPage() {
             <Separator />
             <div className="grid grid-cols-2 gap-2">
               <Button className="w-full" onClick={save}>保存模板</Button>
-              <Button variant="outline" className="text-destructive hover:text-destructive" disabled={!editing} onClick={() => { if (editing) { deleteTemplate(editing.id); setEditorOpen(false); toast.warning('模板已删除') } }}>删除模板</Button>
+              <Button variant="outline" className="text-destructive hover:text-destructive" disabled={!editing} onClick={() => { if (editing) { setDeleteTarget(editing); setDeleteConfirm('') } }}>删除模板</Button>
             </div>
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirm('') } }}>
+        {deleteTarget && (
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>删除AIGC模板</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[12px] leading-relaxed text-destructive">
+                删除后合伙人端将无法使用该生成规则。请输入模板标题「{deleteTarget.title}」确认删除。
+              </div>
+              <Input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder={deleteTarget.title} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={() => removeTemplate(deleteTarget)}>确认删除</Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }

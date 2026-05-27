@@ -4,6 +4,7 @@ import type {
   PartnerPerformance,
   WhiteLabelConfig,
   ProductItem,
+  BusinessToolFile,
 } from '@/types'
 import { mockAdminLeads, mockWhiteLabelConfigs, mockProducts } from '@/mocks/data/admin'
 import { mockPartners } from '@/mocks/data/partners'
@@ -13,7 +14,11 @@ export interface AdminSlice {
   partners: PartnerPerformance[]
   whiteLabelConfigs: Record<string, WhiteLabelConfig>
   products: ProductItem[]
+  businessToolFiles: BusinessToolFile[]
   setAdminLeads: (leads: AdminLeadRecord[]) => void
+  addAdminLead: (lead: AdminLeadRecord) => void
+  updateAdminLead: (leadId: string, patch: Partial<AdminLeadRecord>) => void
+  deleteAdminLead: (leadId: string) => void
   updateLeadAssignment: (leadId: string, partner: string) => void
   updateLeadAssignmentByCompany: (companyName: string, partner: string) => void
   releaseAdminLeadByCompany: (companyName: string) => void
@@ -23,7 +28,9 @@ export interface AdminSlice {
   addProduct: (product: ProductItem) => void
   updateProduct: (id: string, patch: Partial<ProductItem>) => void
   deleteProduct: (id: string) => void
+  addBusinessToolFile: (file: BusinessToolFile) => void
   setPartnerWhiteLabelConfig: (partnerId: string, config: WhiteLabelConfig) => void
+  deletePartnerWhiteLabelConfig: (partnerId: string) => void
   toggleProductStatus: (id: string) => void
 }
 
@@ -32,7 +39,28 @@ export const createAdminSlice: StateCreator<AdminSlice> = (set) => ({
   partners: mockPartners,
   whiteLabelConfigs: mockWhiteLabelConfigs,
   products: mockProducts,
+  businessToolFiles: [
+    { id: 'tool-001', title: '综合能源项目手册', category: 'manual', fileName: '综合能源项目手册.pdf', uploadedBy: '管理员', uploadedAt: '2026-05-01' },
+    { id: 'tool-002', title: '首次拜访宣传资料', category: 'material', fileName: '首次拜访宣传资料.pptx', uploadedBy: '管理员', uploadedAt: '2026-05-02' },
+    { id: 'tool-003', title: '设备科长沟通话术', category: 'script', fileName: '设备科长沟通话术.docx', uploadedBy: '管理员', uploadedAt: '2026-05-03' },
+    { id: 'tool-004', title: '业务QA知识卡', category: 'qa', fileName: '业务QA知识卡.xlsx', uploadedBy: '管理员', uploadedAt: '2026-05-04' },
+    { id: 'tool-005', title: '课程回顾：备案流程', category: 'course', fileName: '备案流程回顾.mp4', uploadedBy: '管理员', uploadedAt: '2026-05-05' },
+  ],
   setAdminLeads: (leads) => set({ adminLeads: leads }),
+  addAdminLead: (lead) =>
+    set((state) => ({ adminLeads: [lead, ...state.adminLeads] })),
+  updateAdminLead: (leadId, patch) =>
+    set((state) => ({
+      adminLeads: state.adminLeads.map((lead) =>
+        lead.id === leadId
+          ? { ...lead, ...patch, updatedAt: patch.updatedAt ?? new Date().toISOString().split('T')[0] }
+          : lead,
+      ),
+    })),
+  deleteAdminLead: (leadId) =>
+    set((state) => ({
+      adminLeads: state.adminLeads.filter((lead) => lead.id !== leadId),
+    })),
   updateLeadAssignment: (leadId, partner) =>
     set((state) => ({
       adminLeads: state.adminLeads.map((l) =>
@@ -103,10 +131,18 @@ export const createAdminSlice: StateCreator<AdminSlice> = (set) => ({
     set((state) => ({
       products: state.products.filter((product) => product.id !== id),
     })),
+  addBusinessToolFile: (file) =>
+    set((state) => ({ businessToolFiles: [file, ...state.businessToolFiles] })),
   setPartnerWhiteLabelConfig: (partnerId, config) =>
     set((state) => ({
       whiteLabelConfigs: { ...state.whiteLabelConfigs, [partnerId]: config },
     })),
+  deletePartnerWhiteLabelConfig: (partnerId) =>
+    set((state) => {
+      const rest = { ...state.whiteLabelConfigs }
+      delete rest[partnerId]
+      return { whiteLabelConfigs: rest }
+    }),
   toggleProductStatus: (id) =>
     set((state) => ({
       products: state.products.map((p) =>
