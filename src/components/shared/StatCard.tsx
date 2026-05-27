@@ -38,7 +38,7 @@ export function StatCard({
         : Minus
 
   return (
-    <Card className="min-w-0 overflow-hidden rounded-2xl border-border/70 shadow-none">
+    <Card className="min-w-0 overflow-hidden rounded-xl border-border/70 shadow-none md:rounded-2xl">
       <CardContent className="p-3.5 md:p-4">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[12px] font-medium leading-tight text-muted-foreground md:text-sm">{title}</p>
@@ -50,8 +50,8 @@ export function StatCard({
         </div>
         <div className="mt-3 flex items-end justify-between gap-2">
           <span className="min-w-0 truncate text-[22px] font-bold leading-none tracking-tight md:text-2xl">
-            <span className="md:hidden">{compactValue(value)}</span>
-            <span className="hidden md:inline">{value}</span>
+            <span className="sm:hidden">{compactValue(value)}</span>
+            <span className="hidden sm:inline">{value}</span>
           </span>
           {change && (
             <span

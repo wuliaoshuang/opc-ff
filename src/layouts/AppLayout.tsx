@@ -39,6 +39,7 @@ import {
   Link2,
   UserCircle,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -47,6 +48,7 @@ interface NavItem {
   sub: string;
   icon: typeof LayoutDashboard;
   path: string;
+  superOnly?: boolean;
 }
 
 interface NavGroup {
@@ -59,14 +61,14 @@ const partnerNav: NavGroup[] = [
     title: "工作台",
     items: [
       {
-        label: "仪表盘",
-        sub: "业务总览",
+        label: "任务看板",
+        sub: "首页看板",
         icon: LayoutDashboard,
         path: "/partner/dashboard",
       },
       {
-        label: "AI线索",
-        sub: "智能挖掘",
+        label: "目标项目",
+        sub: "客户清单",
         icon: Search,
         path: "/partner/leads",
       },
@@ -77,8 +79,8 @@ const partnerNav: NavGroup[] = [
         path: "/partner/evaluation",
       },
       {
-        label: "项目跟进",
-        sub: "CRM管理",
+        label: "个人项目",
+        sub: "进展表单",
         icon: Briefcase,
         path: "/partner/crm",
       },
@@ -167,8 +169,15 @@ const adminNav: NavGroup[] = [
         path: "/admin/partners",
       },
       {
-        label: "商务跟进表",
-        sub: "统一进展",
+        label: "账号管理",
+        sub: "后台权限",
+        icon: ShieldCheck,
+        path: "/admin/accounts",
+        superOnly: true,
+      },
+      {
+        label: "总项目表",
+        sub: "进展表单",
         icon: Briefcase,
         path: "/admin/tracking",
       },
@@ -240,7 +249,7 @@ const adminNav: NavGroup[] = [
   },
 ];
 
-function SidebarContent({ groups }: { groups: NavGroup[] }) {
+function SidebarContent({ groups, isSuperAdmin = false }: { groups: NavGroup[]; isSuperAdmin?: boolean }) {
   return (
     <>
       {groups.map((group) => (
@@ -249,7 +258,7 @@ function SidebarContent({ groups }: { groups: NavGroup[] }) {
             {group.title}
           </span>
           <div className="flex flex-col gap-0.5">
-            {group.items.map((item) => (
+            {group.items.filter((item) => !item.superOnly || isSuperAdmin).map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -292,6 +301,7 @@ export default function AppLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const isAdmin = user?.role === "admin";
+  const isSuperAdmin = user?.adminLevel === "super_admin";
   const groups = isAdmin ? adminNav : partnerNav;
   const userInitial = user?.name?.[0] ?? "?";
 
@@ -306,12 +316,16 @@ export default function AppLayout() {
   const brandColor = effectiveSnapshot?.primaryColor ?? undefined;
   const brandLogo = effectiveSnapshot?.logoUrl ?? null;
 
-  const allItems = groups.flatMap((g) => g.items);
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.superOnly || isSuperAdmin),
+  })).filter((group) => group.items.length > 0);
+  const allItems = visibleGroups.flatMap((g) => g.items);
   const profilePath = isAdmin ? "/admin/profile" : "/partner/profile";
   const currentNav = allItems.find((item) =>
     location.pathname.startsWith(item.path),
   );
-  const currentGroup = groups.find((group) =>
+  const currentGroup = visibleGroups.find((group) =>
     group.items.some((item) => location.pathname.startsWith(item.path)),
   );
 
@@ -373,7 +387,7 @@ export default function AppLayout() {
       <Separator />
 
       <nav className="flex flex-col gap-3 p-3 flex-1 overflow-y-auto">
-        <SidebarContent groups={groups} />
+        <SidebarContent groups={visibleGroups} isSuperAdmin={isSuperAdmin} />
       </nav>
 
       <div className="mt-auto flex flex-col gap-0.5 p-3">
@@ -416,6 +430,7 @@ export default function AppLayout() {
   );
 
   if (isMobile) {
+    const incentiveTabLabel = isAdmin ? "激励" : "红包";
     const mobileTabsPartner = [
       {
         label: "首页",
@@ -430,10 +445,11 @@ export default function AppLayout() {
         match: ["/partner/leads", "/partner/evaluation"],
       },
       {
-        label: "激励",
+        label: incentiveTabLabel,
         icon: Gift,
         path: "/partner/red-packets",
         match: ["/partner/red-packets", "/partner/settlement"],
+        raised: true,
       },
       {
         label: "跟进",
@@ -469,10 +485,11 @@ export default function AppLayout() {
         match: ["/admin/leads"],
       },
       {
-        label: "激励",
+        label: incentiveTabLabel,
         icon: Trophy,
         path: "/admin/incentives",
         match: ["/admin/incentives"],
+        raised: true,
       },
       {
         label: "合伙人",
@@ -486,6 +503,7 @@ export default function AppLayout() {
         path: "",
         match: [
           "/admin/tracking",
+          "/admin/accounts",
           "/admin/bindings",
           "/admin/white-label",
           "/admin/products",
@@ -512,12 +530,12 @@ export default function AppLayout() {
     return (
       <div className="flex h-full flex-col">
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <header className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl pt-safe-top">
-            <div className="flex items-center justify-between px-4 h-14">
-              <div className="flex items-center gap-2">
+          <header className="shrink-0 border-b border-border/60 bg-background/95 pt-safe-top backdrop-blur-xl">
+            <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3">
+              <div className="flex min-w-0 items-center gap-2">
                 {isSecondaryRoute ? (
                   <button
-                    className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors active:bg-accent"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors active:bg-accent"
                     onClick={() => navigate(backTarget)}
                     aria-label={`返回${currentPrimary?.label ?? "首页"}`}
                   >
@@ -526,7 +544,10 @@ export default function AppLayout() {
                 ) : (
                   <SheetTrigger
                     render={
-                      <button className="flex size-8 items-center justify-center rounded-lg text-muted-foreground active:bg-accent transition-colors">
+                      <button
+                        className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors active:bg-accent"
+                        aria-label="打开导航菜单"
+                      >
                         <Menu className="size-5" />
                       </button>
                     }
@@ -548,26 +569,20 @@ export default function AppLayout() {
                     <Zap className="size-3.5 text-primary-foreground" />
                   )}
                 </div>
-                <span className="max-w-[80px] truncate text-[15px] font-bold tracking-tight">
-                  {effectiveSnapshot?.systemName ?? "OPC"}
-                </span>
-              </div>
-              {currentNav && (
-                <div className="absolute left-1/2 flex max-w-[42vw] -translate-x-1/2 flex-col items-center">
-                  <span className="max-w-full truncate text-[13px] font-medium text-foreground/85">
-                    {currentNav.label}
+                <div className="min-w-0">
+                  <span className="block truncate text-[14px] font-semibold tracking-tight">
+                    {currentNav?.label ?? effectiveSnapshot?.systemName ?? "OPC"}
                   </span>
-                  {currentGroup && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {currentGroup.title}
-                    </span>
-                  )}
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {currentGroup?.title ?? brandSub}
+                  </span>
                 </div>
-              )}
-              <div className="flex items-center gap-0.5">
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
                 <button
                   onClick={() => setDark((d) => !d)}
-                  className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors active:bg-accent"
+                  className="flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors active:bg-accent"
+                  aria-label={dark ? "切换到浅色模式" : "切换到深色模式"}
                 >
                   {dark ? (
                     <Sun className="size-4" />
@@ -577,7 +592,7 @@ export default function AppLayout() {
                 </button>
                 <button
                   onClick={() => navigate(profilePath)}
-                  className="ml-0.5 rounded-full transition-transform active:scale-95"
+                  className="flex size-11 items-center justify-center rounded-full transition-transform active:scale-95"
                   aria-label="进入个人中心"
                 >
                   <Avatar className="after:border-0">
@@ -592,7 +607,7 @@ export default function AppLayout() {
 
           <SheetContent
             side="bottom"
-            className="max-h-[86dvh] overflow-y-auto rounded-t-3xl pb-8"
+            className="max-h-[86dvh] overflow-y-auto rounded-t-2xl pb-8"
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
             <div className="mb-4 grid grid-cols-2 gap-2">
@@ -606,9 +621,9 @@ export default function AppLayout() {
                     to={item.path}
                     onClick={() => setSheetOpen(false)}
                     className={cn(
-                      "flex min-w-0 items-center gap-3 rounded-2xl border p-3 transition-colors",
+                      "flex min-h-11 min-w-0 items-center gap-3 rounded-2xl border p-3 transition-colors",
                       isActive
-                        ? "border-primary/30 bg-primary/10 text-primary"
+                        ? "border-primary/30 bg-primary/10 text-foreground"
                         : "border-border bg-card text-foreground hover:bg-muted",
                     )}
                   >
@@ -627,7 +642,7 @@ export default function AppLayout() {
             </div>
 
             <div className="space-y-4">
-              {groups.map((group) => (
+              {visibleGroups.map((group) => (
                 <div key={group.title} className="space-y-2">
                   <p className="px-1 text-[11px] font-medium text-muted-foreground">
                     {group.title}
@@ -640,9 +655,9 @@ export default function AppLayout() {
                         onClick={() => setSheetOpen(false)}
                         className={({ isActive }) =>
                           cn(
-                            "flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 transition-colors",
+                            "flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 transition-colors",
                             isActive
-                              ? "bg-primary text-primary-foreground"
+                              ? "bg-primary/90 text-primary-foreground"
                               : "bg-muted/60 text-foreground hover:bg-muted",
                           )
                         }
@@ -672,14 +687,15 @@ export default function AppLayout() {
           </SheetContent>
         </Sheet>
 
-        <main className="min-w-0 flex-1 overflow-auto overflow-x-hidden bg-muted/25 p-3 pb-24">
+        <main className="mobile-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-muted/25 p-3 pb-[calc(7rem+env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
 
-        <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/90 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="mx-auto flex h-16 max-w-lg items-end justify-around px-2">
+        <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+          <div className="mx-auto flex h-[4.25rem] max-w-lg items-end justify-around px-2">
             {mobileTabs.map((tab) => {
               const isMore = !tab.path;
+              const isRaised = "raised" in tab && tab.raised;
               const isActive = tab.match.some((path) =>
                 location.pathname.startsWith(path),
               );
@@ -689,10 +705,11 @@ export default function AppLayout() {
                   <button
                     key="more"
                     className={cn(
-                      "flex min-w-12 flex-col items-center gap-0.5 rounded-xl px-2 py-1 transition-colors",
+                      "flex min-h-11 min-w-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 transition-colors",
                       isActive ? "text-primary" : "text-muted-foreground",
                     )}
                     onClick={() => setSheetOpen(true)}
+                    aria-label="打开更多功能"
                   >
                     <tab.icon
                       className={cn("size-5", isActive && "scale-110")}
@@ -711,25 +728,32 @@ export default function AppLayout() {
                   key={tab.path}
                   to={tab.path}
                   className={cn(
-                    "flex min-w-12 flex-col items-center gap-0.5 rounded-xl px-2 py-1 transition-colors",
-                    tab.label === "激励" && "-mt-5 px-2",
+                    "flex min-h-11 min-w-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 transition-colors active:bg-muted",
+                    isRaised && "-mt-5 px-2",
                     isActive ? "text-primary" : "text-muted-foreground",
                   )}
                 >
-                  {tab.label === "激励" ? (
+                  {isRaised ? (
                     <>
                       <span
                         className={cn(
-                          "flex size-14 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95",
-                          isActive ? "bg-amber-500" : "bg-primary",
+                          "relative flex size-14 items-center justify-center overflow-hidden rounded-full text-white shadow-[0_14px_30px_rgba(37,99,235,0.24),0_4px_12px_rgba(15,23,42,0.10)] transition-transform before:absolute before:inset-x-4 before:top-2 before:h-3 before:rounded-full before:bg-white/35 before:blur-[6px] active:scale-95",
+                          isActive
+                            ? "bg-[linear-gradient(145deg,color-mix(in_oklab,var(--primary)_92%,white)_0%,var(--primary)_62%,color-mix(in_oklab,var(--primary)_92%,black)_100%)] shadow-[0_16px_32px_rgba(37,99,235,0.32),0_5px_14px_rgba(15,23,42,0.12)]"
+                            : "bg-[linear-gradient(145deg,#f8fbff_0%,color-mix(in_oklab,var(--primary)_46%,white)_34%,color-mix(in_oklab,var(--primary)_78%,white)_100%)] shadow-[0_14px_30px_rgba(37,99,235,0.18),0_4px_12px_rgba(15,23,42,0.08)]",
                         )}
                       >
-                        <tab.icon className="size-6" />
+                        <tab.icon
+                          className={cn(
+                            "relative z-10 size-6 drop-shadow-sm",
+                            isActive ? "text-white" : "text-primary",
+                          )}
+                        />
                       </span>
                       <span
                         className={cn(
-                          "mt-1 text-[10px] font-medium",
-                          isActive ? "text-amber-500" : "text-foreground",
+                          "mt-1 text-[10px] font-semibold",
+                          isActive ? "text-primary" : "text-foreground",
                         )}
                       >
                         {tab.label}
@@ -765,7 +789,7 @@ export default function AppLayout() {
       <aside className="flex h-full w-[240px] shrink-0 flex-col border-r bg-muted/30">
         {sidebarInner}
       </aside>
-      <div className="flex h-full flex-1 flex-col overflow-hidden">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-15 shrink-0 items-center justify-between border-b px-5">
           <div className="flex items-center gap-2">
             {currentNav && (
@@ -809,7 +833,7 @@ export default function AppLayout() {
             </button>
           </div>
         </header>
-        <main className="min-w-0 flex-1 overflow-auto overflow-x-hidden p-6">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-6">
           <Outlet />
         </main>
       </div>
