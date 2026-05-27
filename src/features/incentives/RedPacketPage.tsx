@@ -15,8 +15,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +39,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  CalendarIcon,
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -58,6 +65,23 @@ const statusConfig: Record<
   expired: { label: "已过期", variant: "destructive" },
 };
 
+function formatDateInput(date?: Date) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(date?: Date) {
+  if (!date) return "选择截止日期";
+  return date.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 export default function RedPacketPage() {
   const heroClass = useBrandHero();
   const tasks = useStore((s) => s.redPacketTasks);
@@ -73,8 +97,9 @@ export default function RedPacketPage() {
   const [taskName, setTaskName] = useState("");
   const [taskProject, setTaskProject] = useState("");
   const [taskAmount, setTaskAmount] = useState("");
-  const [taskDeadline, setTaskDeadline] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState<Date | undefined>();
   const [taskRequirements, setTaskRequirements] = useState("");
+  const deadlineValue = formatDateInput(taskDeadline);
 
   const getTaskTime = (task: RedPacketTask) =>
     latestOf(
@@ -136,7 +161,7 @@ export default function RedPacketPage() {
       toast.error("请填写有效奖励金额");
       return;
     }
-    if (!taskDeadline) {
+    if (!deadlineValue) {
       toast.error("请选择截止日期");
       return;
     }
@@ -150,7 +175,7 @@ export default function RedPacketPage() {
       createdAt: new Date().toISOString(),
       status: "draft",
       createdBy: user?.id ?? "partner",
-      deadline: taskDeadline,
+      deadline: deadlineValue,
       requirements:
         taskRequirements.trim() ||
         "完成项目推进动作，并上传现场照片、沟通纪要或其他可审核凭证。",
@@ -161,7 +186,7 @@ export default function RedPacketPage() {
     setTaskName("");
     setTaskProject("");
     setTaskAmount("");
-    setTaskDeadline("");
+    setTaskDeadline(undefined);
     setTaskRequirements("");
   };
 
@@ -602,11 +627,38 @@ export default function RedPacketPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px]">截止日期</Label>
-              <Input
-                value={taskDeadline}
-                onChange={(e) => setTaskDeadline(e.target.value)}
-                type="date"
-              />
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full justify-start gap-2 px-3 text-left text-base font-normal md:h-8 md:text-sm"
+                    />
+                  }
+                >
+                  <CalendarIcon className="size-4 text-muted-foreground" />
+                  <span className={taskDeadline ? "" : "text-muted-foreground"}>
+                    {formatDateLabel(taskDeadline)}
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0"
+                  align="start"
+                  sideOffset={8}
+                >
+                  <Calendar
+                    mode="single"
+                    selected={taskDeadline}
+                    onSelect={setTaskDeadline}
+                    className="rounded-lg border-0"
+                    captionLayout="dropdown"
+                    startMonth={new Date()}
+                    endMonth={new Date(new Date().getFullYear() + 5, 11)}
+                    disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px]">任务要求</Label>
