@@ -16,12 +16,10 @@ export default function PartnerWhiteLabelPage() {
   const configs = useStore((s) => s.whiteLabelConfigs)
   const setPartnerConfig = useStore((s) => s.setPartnerWhiteLabelConfig)
 
-  if (!user) return null
-
-  const existing = configs[user.id]
+  const existing = user ? configs[user.id] : undefined
   const initial: WhiteLabelConfig = existing ?? {
-    partnerId: user.id,
-    partnerName: user.name,
+    partnerId: user?.id ?? '',
+    partnerName: user?.name ?? '',
     systemName: '',
     logoUrl: '',
     primaryColor: DEFAULT_COLOR,
@@ -31,6 +29,8 @@ export default function PartnerWhiteLabelPage() {
 
   const [form, setForm] = useState<WhiteLabelConfig>(initial)
   const isPending = form.auditStatus === 'pending'
+
+  if (!user) return null
 
   const handleLogoUpload = (file?: File) => {
     if (!file) return

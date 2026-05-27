@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const redPacketTasks = useStore((s) => s.redPacketTasks);
   const commissions = useStore((s) => s.commissions);
   const subPartners = useStore((s) => s.subPartners);
+  const heroClass = useBrandHero();
 
   if (!user) return null;
 
@@ -101,8 +102,6 @@ export default function ProfilePage() {
     logout();
     navigate("/login");
   };
-
-  const heroClass = useBrandHero();
 
   return (
     <div className="space-y-5 md:space-y-6">

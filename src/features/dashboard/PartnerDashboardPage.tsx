@@ -35,9 +35,13 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/stores";
 import { cn } from "@/lib/utils";
 import { formatListTime, latestOf, sortByNewest } from "@/lib/time";
+import { toast } from "sonner";
 import type { PotentialLead } from "@/types";
 
 function daysUntil(dateStr: string): number {
@@ -53,11 +57,19 @@ export default function PartnerDashboardPage() {
   const commissions = useStore((s) => s.commissions);
   const user = useStore((s) => s.user);
   const subPartners = useStore((s) => s.subPartners);
+  const businessToolFiles = useStore((s) => s.businessToolFiles);
+  const submitProjectFiling = useStore((s) => s.submitProjectFiling);
+  const adminLeads = useStore((s) => s.adminLeads);
+  const setAdminLeads = useStore((s) => s.setAdminLeads);
 
   const [aiAnalysisLead, setAiAnalysisLead] = useState<PotentialLead | null>(
     null,
   );
   const [aigcDialogOpen, setAigcDialogOpen] = useState(false);
+  const [filingDialogOpen, setFilingDialogOpen] = useState(false);
+  const [filingCompanyName, setFilingCompanyName] = useState("");
+  const [filingIndustry, setFilingIndustry] = useState("");
+  const [filingNote, setFilingNote] = useState("");
 
   const myProjects = projects.filter(
     (p) => p.ownerPartnerId === user?.id || p.ownerPartnerName === user?.name,
@@ -212,6 +224,107 @@ export default function PartnerDashboardPage() {
     matchScore: lead.aiMatchScore,
     valueScore: lead.isListed ? 95 : 78,
   });
+  const dashboardBlocks = [
+    {
+      title: "最新动态",
+      desc: `${newWeeklyLeads.length} 条新增目标项目，${availableTasks.length} 个新增任务`,
+      badge: "新增标红",
+      icon: Clock,
+      path: "/partner/leads",
+      highlight: true,
+    },
+    {
+      title: "业务进展",
+      desc: `${myProjects.length} 个个人项目，${urgentProjects.length} 个待推进动作`,
+      badge: "个人项目表单",
+      icon: ClipboardCheck,
+      path: "/partner/crm",
+    },
+    {
+      title: "重大项目",
+      desc: `查看目标客户清单，优先处理 ${topLeads[0]?.companyName ?? "高匹配客户"}`,
+      badge: "可勾选备案",
+      icon: Target,
+      path: "/partner/leads",
+    },
+    {
+      title: "一键备案",
+      desc: "从目标项目提交备案，后台审核通过后进入2个月优先排他",
+      badge: "待后台审核",
+      icon: CircleCheck,
+      path: "filing",
+    },
+    {
+      title: "业务工具箱",
+      desc: `项目手册、宣传资料、话术、QA、课程回顾 ${businessToolFiles.length} 份`,
+      badge: "支持上传",
+      icon: FileText,
+      path: "/partner/training",
+    },
+    {
+      title: "业务助理",
+      desc: "输入项目名称，判断是否已有跟进、备案或排他记录",
+      badge: "知识库问答",
+      icon: Lightbulb,
+      path: "/partner/training",
+    },
+  ];
+
+  const resetFilingForm = () => {
+    setFilingCompanyName("");
+    setFilingIndustry("");
+    setFilingNote("");
+  };
+
+  const handleSubmitDashboardFiling = () => {
+    if (!user) return;
+    if (!filingCompanyName.trim() || !filingIndustry.trim()) {
+      toast.error("请填写公司名称和行业");
+      return;
+    }
+
+    const targetCompany = filingCompanyName.trim();
+    const matchedLead = adminLeads.find((lead) => lead.companyName === targetCompany);
+    if (matchedLead?.status && matchedLead.status !== "available") {
+      toast.error(`该客户已被申请或处于排他状态：${matchedLead.appliedBy ?? matchedLead.assignedPartner ?? "平台"}`);
+      return;
+    }
+
+    const project = submitProjectFiling({
+      leadId: matchedLead?.id,
+      companyName: targetCompany,
+      industry: filingIndustry.trim(),
+      partnerId: user.id,
+      partnerName: user.name,
+      note: filingNote.trim() || "从首页看板一键备案提交",
+    });
+    const now = new Date().toISOString().split("T")[0];
+    if (matchedLead) {
+      setAdminLeads(adminLeads.map((lead) => (
+        lead.id === matchedLead.id
+          ? {
+              ...lead,
+              filingStatus: "pending" as const,
+              status: "applied" as const,
+              appliedBy: user.name,
+              assignedPartner: user.name,
+              updatedAt: now,
+            }
+          : lead
+      )));
+    }
+    resetFilingForm();
+    setFilingDialogOpen(false);
+    toast.success(`备案已提交后台审核：${project.companyName}`);
+  };
+
+  const handleDashboardBlockClick = (path: string) => {
+    if (path === "filing") {
+      setFilingDialogOpen(true);
+      return;
+    }
+    navigate(path);
+  };
 
   return (
     <div className="space-y-5 md:space-y-6">
@@ -254,20 +367,43 @@ export default function PartnerDashboardPage() {
             </div>
           </div>
 
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {quickActions.map((action) => (
               <button
                 key={action.label}
                 onClick={() => navigate(action.path)}
-                className="min-w-[126px] rounded-xl border border-white/10 bg-white/[0.08] p-3 text-left transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
+                className="min-w-0 rounded-xl border border-white/10 bg-white/[0.08] p-3 text-left transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
               >
                 <action.icon className="size-4 text-emerald-300" />
                 <p className="mt-2 text-sm font-medium">{action.label}</p>
-                <p className="mt-0.5 text-[11px] text-white/55">{action.sub}</p>
+                <p className="mt-0.5 truncate text-[11px] text-white/55">{action.sub}</p>
               </button>
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        {dashboardBlocks.map((block) => (
+          <button
+            key={block.title}
+            type="button"
+            onClick={() => handleDashboardBlockClick(block.path)}
+            className={cn(
+              "rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted/40",
+              block.highlight && "border-red-500/40 bg-red-500/5",
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-foreground text-background">
+                <block.icon className="size-4" />
+              </div>
+              <Badge variant={block.highlight ? "destructive" : "outline"} className="text-[10px]">{block.badge}</Badge>
+            </div>
+            <p className="mt-3 text-sm font-semibold">{block.title}</p>
+            <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground">{block.desc}</p>
+          </button>
+        ))}
       </section>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
@@ -803,6 +939,63 @@ export default function PartnerDashboardPage() {
             >
               <Target className="size-4" /> 商机挖掘话术
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={filingDialogOpen}
+        onOpenChange={(open) => {
+          setFilingDialogOpen(open);
+          if (!open) resetFilingForm();
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CircleCheck className="size-5 text-primary" />
+              一键备案
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-blue-500/20 bg-blue-50 p-3 text-[12px] leading-relaxed text-blue-800 dark:bg-blue-950/20 dark:text-blue-200">
+              提交后会进入管理员“总项目进展表单”的备案审核；审核通过后，项目进入2个月优先排他期。
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">公司名称 *</Label>
+                <Input
+                  value={filingCompanyName}
+                  onChange={(event) => setFilingCompanyName(event.target.value)}
+                  placeholder="请输入目标客户公司名称"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">所属行业 *</Label>
+                <Input
+                  value={filingIndustry}
+                  onChange={(event) => setFilingIndustry(event.target.value)}
+                  placeholder="如：制造业、化工、建材"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px]">备案原因 / 资源说明</Label>
+              <Textarea
+                value={filingNote}
+                onChange={(event) => setFilingNote(event.target.value)}
+                placeholder="说明已有资源、关键岗位、商会协会圈层或项目背景"
+                className="min-h-24 resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => setFilingDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={handleSubmitDashboardFiling}>
+                提交备案
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

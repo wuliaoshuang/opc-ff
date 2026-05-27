@@ -14,6 +14,7 @@ const statusLabels: Record<CommissionRecord['status'], { label: string; variant:
   settled: { label: '已结算', variant: 'default' },
   pending: { label: '待结算', variant: 'outline' },
   frozen: { label: '冻结中', variant: 'secondary' },
+  voided: { label: '已作废', variant: 'secondary' },
 }
 
 const months = ['2026-05', '2026-04', '2026-03', '2026-02', '2026-01']

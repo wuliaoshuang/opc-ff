@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useStore } from "@/stores";
 import { useBrandHero } from "@/hooks/use-brand-hero";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -43,17 +43,18 @@ import { Progress } from "@/components/ui/progress";
 import {
   Search,
   FileText,
-  Handshake,
   Bell,
   X,
   Save,
+  Handshake,
   Lightbulb,
-  Target,
   MessageSquare,
+  Target,
   SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildPromptFromKeywords, addDays } from "@/lib/v1-config";
 import type { CustomerBinding, PotentialLead, LeadStatus } from "@/types";
 
 const industries = [
@@ -101,6 +102,13 @@ const statusLabels: Record<LeadStatus, string> = {
   exclusive: "排他期",
 };
 
+const bindingStageLabels = {
+  temporary: "临时绑定",
+  locked: "初步锁定",
+  exclusive: "排他保护",
+  released: "已释放",
+} as const;
+
 function mockMarketPlan(lead: PotentialLead) {
   return {
     opportunity: `${lead.companyName}作为${lead.industry}行业${lead.isListed ? "上市公司" : "重点企业"}，年营收${lead.revenue}，用能级别"${lead.energyUsage}"。${lead.newProjectSize ? `近期有${lead.newProjectSize}新建项目（${lead.newProjectProgress}），` : ""}存在显著的综合能源服务需求，预估年用电成本占比15-20%，适合推行光伏+储能方案。`,
@@ -120,9 +128,11 @@ export default function LeadMiningPage() {
   const leads = useStore((s) => s.leads);
   const searchResults = useStore((s) => s.searchResults);
   const setSearchResults = useStore((s) => s.setSearchResults);
-  const applyLead = useStore((s) => s.applyLead);
+  const followLead = useStore((s) => s.followLead);
+  const updateLeadFiling = useStore((s) => s.updateLeadFiling);
   const updateLeadNotes = useStore((s) => s.updateLeadNotes);
   const addProject = useStore((s) => s.addProject);
+  const submitProjectFiling = useStore((s) => s.submitProjectFiling);
   const checkConflict = useStore((s) => s.checkConflict);
   const addBinding = useStore((s) => s.addBinding);
   const adminLeads = useStore((s) => s.adminLeads);
@@ -132,9 +142,7 @@ export default function LeadMiningPage() {
   const [industry, setIndustry] = useState("");
   const [region, setRegion] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [prompt, setPrompt] = useState(
-    "优先寻找高耗能、扩建、招标或园区综合能源机会",
-  );
+  const [prompt, setPrompt] = useState("");
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -144,8 +152,23 @@ export default function LeadMiningPage() {
   const [editProjectInfo, setEditProjectInfo] = useState("");
   const [editBusinessInfo, setEditBusinessInfo] = useState("");
   const [detailTab, setDetailTab] = useState<"project" | "business">("project");
+  const [filingLead, setFilingLead] = useState<PotentialLead | null>(null);
+  const [filingNote, setFilingNote] = useState("");
 
+  const visibleLeads = searched ? searchResults : leads;
   const newCount = leads.filter((l) => l.status === "available").length;
+  const currentAccount = useStore((s) => s.accounts.find((account) => account.id === user?.id));
+  const personalKeywords = useMemo(() => currentAccount?.resourceKeywords ?? [], [currentAccount?.resourceKeywords]);
+  const generatedPrompt = buildPromptFromKeywords([
+    user?.region,
+    user?.industry,
+    ...personalKeywords,
+    ...selectedResources,
+    industry && industry !== "全部" ? industry : undefined,
+    region && region !== "全部" ? region : undefined,
+    keyword,
+  ].filter(Boolean) as string[]);
+  const effectivePrompt = prompt.trim() || generatedPrompt;
 
   const toggleResource = (tag: string) => {
     setSelectedResources((prev) =>
@@ -173,18 +196,29 @@ export default function LeadMiningPage() {
           ].some((field) => field.includes(keyword)),
         );
       }
+      const promptTerms = Array.from(new Set(
+        effectivePrompt
+          .split(/[、,，\s。；;：:（）()]+/)
+          .map((item) => item.trim())
+          .filter((item) => item.length >= 2),
+      ))
+      const scoreLead = (lead: PotentialLead) => {
+        const haystack = [
+          lead.companyName,
+          lead.region,
+          lead.industry,
+          lead.projectInfo,
+          lead.businessInfo,
+          lead.newProjectProgress ?? "",
+          ...(lead.matchedKeywords ?? []),
+        ].join(" ")
+        const selectedHit = selectedResources.filter((tag) => haystack.includes(tag)).length
+        const personalHit = personalKeywords.filter((tag) => haystack.includes(tag)).length
+        const promptHit = promptTerms.filter((term) => haystack.includes(term)).length
+        return lead.aiMatchScore + selectedHit * 8 + personalHit * 6 + promptHit * 3
+      }
       results.sort((a, b) => {
-        const resourceBoost = selectedResources.length > 0 ? 4 : 0;
-        const promptBoostA =
-          prompt.includes(a.industry) || prompt.includes(a.region) ? 3 : 0;
-        const promptBoostB =
-          prompt.includes(b.industry) || prompt.includes(b.region) ? 3 : 0;
-        return (
-          b.aiMatchScore +
-          resourceBoost +
-          promptBoostB -
-          (a.aiMatchScore + resourceBoost + promptBoostA)
-        );
+        return scoreLead(b) - scoreLead(a)
       });
       setSearchResults(results.slice(0, 12));
       setLoading(false);
@@ -194,109 +228,145 @@ export default function LeadMiningPage() {
     industry,
     region,
     keyword,
-    prompt,
-    selectedResources.length,
+    effectivePrompt,
+    selectedResources,
     setSearchResults,
+    personalKeywords,
   ]);
 
-  const handleApply = useCallback(
-    (id: string) => {
-      const lead = leads.find((l) => l.id === id);
-      if (!lead || !user) return;
-      if (lead.status !== "available") {
-        toast.error("该线索已被申请或处于保护期，不能重复申请");
-        return;
-      }
-      const conflict = checkConflict(lead.companyName);
-      if (conflict) {
-        toast.error(
-          `该客户已由${conflict.partnerName}绑定，当前阶段：${conflict.stage}`,
-        );
-        return;
-      }
+  const createProjectFromLead = useCallback((lead: PotentialLead, source: "lead" | "filing") => {
+    if (!user) return
+    const now = new Date().toISOString().split("T")[0];
+    const oneMonth = addDays(30);
+    const twoMonth = addDays(60);
+    addProject({
+      id: `crm-${Date.now()}`,
+      leadId: lead.id,
+      companyName: lead.companyName,
+      industry: lead.industry,
+      ownerPartnerId: user.id,
+      ownerPartnerName: user.name,
+      referrerPartnerId: user.id,
+      referrerPartnerName: user.name,
+      stage: "applied",
+      appliedAt: now,
+      contactDeadline: oneMonth,
+      meetingDeadline: twoMonth,
+      isExclusive: false,
+      isOverdue: false,
+      source,
+      filingStatus: source === "filing" ? "pending" : "none",
+      filingSubmittedAt: source === "filing" ? now : undefined,
+      projectPhase16: source === "filing" ? "filing_review" : "resource_match",
+      bindingTags: source === "filing" ? ["备案"] : ["绑定"],
+      followupLogs: [
+        {
+          date: now,
+          action: source === "filing" ? "提交项目备案" : "从目标项目清单加入跟进",
+          result: `项目评级 ${lead.grade ?? "B"} · 匹配度 ${lead.aiMatchScore}%`,
+        },
+      ],
+    });
+  }, [addProject, user])
 
-      applyLead(id, user.name);
-      setAdminLeads(
-        adminLeads.map((l) =>
-          l.id === id
-            ? {
-                ...l,
-                status: "applied" as const,
-                appliedBy: user.name,
-                assignedPartner: user.name,
-                updatedAt: new Date().toISOString().split("T")[0],
-              }
-            : l,
-        ),
-      );
-      toast.success("申请已提交，线索、CRM与客户绑定已同步");
-      if (lead) {
-        const now = new Date().toISOString().split("T")[0];
-        const oneMonth = new Date(Date.now() + 30 * 86400000)
-          .toISOString()
-          .split("T")[0];
-        const twoMonth = new Date(Date.now() + 60 * 86400000)
-          .toISOString()
-          .split("T")[0];
-        addProject({
-          id: `crm-${Date.now()}`,
-          leadId: lead.id,
-          companyName: lead.companyName,
-          industry: lead.industry,
-          ownerPartnerId: user.id,
-          ownerPartnerName: user.name,
-          stage: "applied",
-          appliedAt: now,
-          contactDeadline: oneMonth,
-          meetingDeadline: twoMonth,
-          isExclusive: false,
-          isOverdue: false,
-          source: "lead",
-          followupLogs: [
-            {
-              date: now,
-              action: "从AI线索池申请跟进",
-              result: `线索匹配度 ${lead.aiMatchScore}%`,
-            },
-          ],
-        });
-        const binding: CustomerBinding = {
-          id: `bind-${Date.now()}`,
-          customerId: `cust-${Date.now()}`,
-          customerName: lead.companyName,
-          industry: lead.industry,
-          partnerId: user.id,
-          partnerName: user.name,
-          bindingType: "lead_apply",
-          stage: "temporary",
-          status: "active",
-          boundAt: now,
-          expiredAt: oneMonth,
-          linkedProjects: 1,
-          history: [
-            {
-              date: now,
-              from: "released",
-              to: "temporary",
-              action: "从AI线索池申请绑定",
-              operator: user.name,
-            },
-          ],
-        };
-        addBinding(binding);
-      }
-    },
-    [
-      addBinding,
-      addProject,
-      adminLeads,
-      applyLead,
-      checkConflict,
-      leads,
-      setAdminLeads,
-      user,
-    ],
-  );
+  const handleFollow = (lead: PotentialLead) => {
+    if (!user) return
+    if (lead.status !== "available") {
+      toast.error("该目标已有申请或处于排他状态")
+      return
+    }
+    const conflict = checkConflict(lead.companyName);
+    if (conflict) {
+      toast.error(`该客户已由${conflict.partnerName}绑定，当前阶段：${bindingStageLabels[conflict.stage]}`);
+      return;
+    }
+    const now = new Date().toISOString().split("T")[0];
+    followLead(lead.id, user.name)
+    setAdminLeads(adminLeads.map((item) => item.id === lead.id ? {
+      ...item,
+      status: "followed" as const,
+      appliedBy: user.name,
+      assignedPartner: user.name,
+      updatedAt: now,
+    } : item))
+    createProjectFromLead(lead, "lead")
+    const binding: CustomerBinding = {
+      id: `bind-${Date.now()}`,
+      customerId: `cust-${Date.now()}`,
+      customerName: lead.companyName,
+      industry: lead.industry,
+      partnerId: user.id,
+      partnerName: user.name,
+      bindingType: "lead_apply",
+      stage: "temporary",
+      status: "active",
+      boundAt: now,
+      expiredAt: addDays(30),
+      linkedProjects: 1,
+      history: [
+        {
+          date: now,
+          from: "released",
+          to: "temporary",
+          action: "从目标项目清单加入跟进",
+          operator: user.name,
+        },
+      ],
+    };
+    addBinding(binding);
+    toast.success("已加入个人项目表单，显示为跟进中")
+  }
+
+  const handleSubmitFiling = () => {
+    if (!filingLead || !user) return
+    if (filingLead.status !== "available") {
+      toast.error("该目标已有申请或处于排他状态")
+      return
+    }
+    const conflict = checkConflict(filingLead.companyName);
+    if (conflict) {
+      toast.error(`该客户已由${conflict.partnerName}绑定，当前阶段：${bindingStageLabels[conflict.stage]}`);
+      return;
+    }
+    const project = submitProjectFiling({
+      leadId: filingLead.id,
+      companyName: filingLead.companyName,
+      industry: filingLead.industry,
+      partnerId: user.id,
+      partnerName: user.name,
+      note: filingNote,
+    })
+    const now = new Date().toISOString().split("T")[0];
+    const binding: CustomerBinding = {
+      id: `bind-${Date.now()}`,
+      customerId: `cust-${Date.now()}`,
+      customerName: filingLead.companyName,
+      industry: filingLead.industry,
+      partnerId: user.id,
+      partnerName: user.name,
+      bindingType: "lead_apply",
+      stage: "temporary",
+      status: "active",
+      boundAt: now,
+      expiredAt: addDays(30),
+      linkedProjects: 1,
+      history: [
+        {
+          date: now,
+          from: "released",
+          to: "temporary",
+          action: "从目标项目清单申请备案",
+          operator: user.name,
+        },
+      ],
+    };
+    addBinding(binding);
+    updateLeadFiling(filingLead.id, "pending", user.name)
+    setAdminLeads(adminLeads.map((lead) => lead.id === filingLead.id ? { ...lead, filingStatus: "pending" as const, appliedBy: user.name, assignedPartner: user.name, updatedAt: now } : lead))
+    setFilingLead(null)
+    setFilingNote("")
+    toast.success(`备案已提交后台审核：${project.companyName}`)
+  }
 
   const openDetail = (lead: PotentialLead) => {
     setDetailLead(lead);
@@ -322,8 +392,8 @@ export default function LeadMiningPage() {
   return (
     <div>
       <PageHeader
-        title="AI 线索挖掘"
-        description="设定关键词与资源标签，AI 自动匹配潜在项目并输出开发策略"
+        title="目标项目清单"
+        description="查看全部目标客户，按城市、行业和个人资源关键词筛选，可跟进或申请备案"
       />
 
       <section className={`${heroClass} p-4 md:p-5 mb-4`}>
@@ -331,10 +401,10 @@ export default function LeadMiningPage() {
           <div className="min-w-0">
             <p className="text-[11px] text-white/55">线索雷达</p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight">
-              先筛资源，再申请保护
+              先筛资源，再跟进或备案
             </h2>
             <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-white/60">
-              从行业、区域、关键词和资源圈层四个维度缩小范围，优先处理高匹配客户。
+              原型会把城市、行业、社会职务和资源问卷转成提示词，影响项目清单排序。
             </p>
           </div>
           <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.08] px-3 py-2 text-right">
@@ -465,7 +535,7 @@ export default function LeadMiningPage() {
                 onChange={(e) => setPrompt(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground">
-                提示词会影响线索排序与策略建议。
+                当前生效提示词：{effectivePrompt}
               </p>
             </div>
 
@@ -517,7 +587,7 @@ export default function LeadMiningPage() {
           description="请尝试调整搜索条件"
         />
       )}
-      {!loading && searchResults.length > 0 && (
+      {!loading && visibleLeads.length > 0 && (
         <>
           {/* Desktop Table */}
           <Card className="hidden md:block">
@@ -529,13 +599,15 @@ export default function LeadMiningPage() {
                     <TableHead>行业</TableHead>
                     <TableHead>区域</TableHead>
                     <TableHead>上市</TableHead>
+                    <TableHead>申请/排他</TableHead>
+                    <TableHead>评级</TableHead>
                     <TableHead className="w-[160px]">AI 评分</TableHead>
                     <TableHead>详情</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {searchResults.map((lead) => {
+                  {visibleLeads.map((lead) => {
                     const cs = companyScore(lead);
                     const es = energyScore(lead);
                     const ms = matchScore(lead);
@@ -553,6 +625,13 @@ export default function LeadMiningPage() {
                             <Badge variant="outline">非上市</Badge>
                           )}
                         </TableCell>
+                        <TableCell>
+                          <div className="space-y-1 text-[12px]">
+                            <Badge variant={lead.appliedBy ? "secondary" : "outline"}>{lead.appliedBy ? `已申请：${lead.appliedBy}` : "无人申请"}</Badge>
+                            <div className="text-muted-foreground">{lead.status === "exclusive" ? `排他至 ${lead.exclusiveUntil ?? "待同步"}` : "未排他"}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell><span className="font-bold">{lead.grade ?? "B"}</span></TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">
@@ -606,12 +685,10 @@ export default function LeadMiningPage() {
                         </TableCell>
                         <TableCell>
                           {lead.status === "available" ? (
-                            <Button
-                              size="sm"
-                              onClick={() => handleApply(lead.id)}
-                            >
-                              申请跟进
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" onClick={() => handleFollow(lead)}>跟进</Button>
+                              <Button size="sm" onClick={() => setFilingLead(lead)}>备案</Button>
+                            </div>
                           ) : (
                             <Button size="sm" disabled variant="outline">
                               {statusLabels[lead.status]}
@@ -628,7 +705,7 @@ export default function LeadMiningPage() {
 
           {/* Mobile Card List */}
           <div className="space-y-3 md:hidden">
-            {searchResults.map((lead) => {
+            {visibleLeads.map((lead) => {
               const cs = companyScore(lead);
               const es = energyScore(lead);
               const ms = matchScore(lead);
@@ -652,6 +729,11 @@ export default function LeadMiningPage() {
                       )}
                     </div>
                     <div className="space-y-1.5">
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline" className="text-[10px]">{lead.appliedBy ? `已申请：${lead.appliedBy}` : "无人申请"}</Badge>
+                        <Badge variant="outline" className="text-[10px]">评级 {lead.grade ?? "B"}</Badge>
+                        <Badge variant={lead.status === "exclusive" ? "default" : "outline"} className="text-[10px]">{lead.status === "exclusive" ? `排他至 ${lead.exclusiveUntil ?? "待同步"}` : "未排他"}</Badge>
+                      </div>
                       {[
                         { label: "企业", value: cs, color: "bg-blue-500" },
                         { label: "能源", value: es, color: "bg-emerald-500" },
@@ -689,11 +771,19 @@ export default function LeadMiningPage() {
                         size="sm"
                         className="flex-1 h-8 text-[12px]"
                         disabled={lead.status !== "available"}
-                        onClick={() => handleApply(lead.id)}
+                        onClick={() => handleFollow(lead)}
                       >
                         {lead.status === "available"
-                          ? "申请"
+                          ? "跟进"
                           : statusLabels[lead.status]}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-[12px]"
+                        disabled={lead.status !== "available"}
+                        onClick={() => setFilingLead(lead)}
+                      >
+                        备案
                       </Button>
                     </div>
                   </CardContent>
@@ -778,6 +868,32 @@ export default function LeadMiningPage() {
                 <Save className="size-3.5" /> 保存备注
               </Button>
             </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog open={!!filingLead} onOpenChange={(open) => { if (!open) setFilingLead(null) }}>
+        {filingLead && (
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>一键备案：{filingLead.companyName}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-xl border bg-muted/30 p-3 text-[12px] leading-relaxed">
+                <p>{filingLead.industry} · {filingLead.region} · 项目评级 {filingLead.grade ?? "B"}</p>
+                <p className="mt-1 text-muted-foreground">备案提交后进入后台审核，通过后按本轮 v1.0 规则进入 2 个月优先排他期。</p>
+              </div>
+              <Textarea
+                value={filingNote}
+                onChange={(event) => setFilingNote(event.target.value)}
+                placeholder="填写备案理由、资源关系或关键联系人"
+                className="min-h-24"
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setFilingLead(null)}>取消</Button>
+                <Button onClick={handleSubmitFiling}>提交备案</Button>
+              </DialogFooter>
+            </div>
           </DialogContent>
         )}
       </Dialog>
@@ -878,11 +994,11 @@ export default function LeadMiningPage() {
                     <Button
                       className="flex-1"
                       onClick={() => {
-                        handleApply(planLead.id);
+                        handleFollow(planLead);
                         setPlanLead(null);
                       }}
                     >
-                      申请跟进此线索
+                      跟进此目标项目
                     </Button>
                   </div>
                 </div>

@@ -45,13 +45,15 @@ export function AddProjectDialog({ open, onOpenChange, onSubmit }: Props) {
       id: `crm-${Date.now()}`,
       companyName: data.companyName,
       industry: data.industry,
-      stage: data.contactName ? 'contact_filled' : 'applied',
+      stage: 'applied',
       appliedAt: now,
       contactDeadline: oneMonth,
       meetingDeadline: twoMonth,
       isExclusive: false,
       isOverdue: false,
       source: 'manual',
+      filingStatus: 'none',
+      projectPhase16: 'lead_in',
       contactPerson: data.contactName ? {
         name: data.contactName,
         role: data.contactRole ?? '',
@@ -61,7 +63,7 @@ export function AddProjectDialog({ open, onOpenChange, onSubmit }: Props) {
       } : undefined,
       followupLogs: [
         { date: now, action: '主动登记项目', result: data.note || '等待对接' },
-        ...(data.contactName ? [{ date: now, action: '填写对接人', result: `${data.contactName}（${data.contactRole ?? '未知角色'}）` }] : []),
+        ...(data.contactName ? [{ date: now, action: '登记对接人线索', result: `${data.contactName}（${data.contactRole ?? '未知角色'}），待后台确认维护` }] : []),
       ],
     }
 
@@ -95,7 +97,7 @@ export function AddProjectDialog({ open, onOpenChange, onSubmit }: Props) {
           </div>
 
           <div className="rounded-lg border p-3 space-y-3">
-            <p className="text-[12px] font-medium text-muted-foreground">对接人信息（可选，填写后自动跳过申请阶段）</p>
+            <p className="text-[12px] font-medium text-muted-foreground">对接人信息（可选，提交后由后台管理员确认维护）</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-[11px]">姓名</Label>
